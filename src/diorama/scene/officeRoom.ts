@@ -2,10 +2,12 @@ import { VoxelGrid } from '../voxel/VoxelGrid';
 import { C } from './palette';
 
 export const ROOM = { W: 200, H: 28, D: 150 } as const;
-/** 바닥 윗면 높이 */
 const F = 2;
+/** 바닥 윗면 높이 (엔진에서 강조 메시 위치에 쓴다) */
+export const FLOOR_TOP = F;
 const WALL_H = 20;
 const GLASS_H = 15;
+export const GLASS_HEIGHT = GLASS_H;
 
 export interface Seat {
   /** 캐릭터 발밑(앉은 자리면 좌판 윗면) 중심의 격자 좌표 */
@@ -29,6 +31,21 @@ export interface OfficeRoom {
   glass: VoxelGrid;
   seats: Seat[];
 }
+
+/** 회의실 바닥 영역(격자 좌표, x1·z1은 포함하지 않음). 하이라이트·클릭·라벨 위치에 쓴다. */
+export interface RoomZone {
+  id: string;
+  x0: number;
+  z0: number;
+  x1: number;
+  z1: number;
+}
+
+export const MEETING_ROOM_ZONES: readonly RoomZone[] = [
+  { id: 'room-a', x0: 136, z0: 3, x1: 177, z1: 60 },
+  { id: 'room-b', x0: 178, z0: 3, x1: 200, z1: 60 },
+  { id: 'room-c', x0: 148, z0: 85, x1: 169, z1: 106 },
+];
 
 /** 항상 같은 배치가 나오도록 고정 시드 난수를 쓴다. */
 function seeded(seed: number): () => number {
@@ -187,26 +204,51 @@ export function buildOfficeRoom(): OfficeRoom {
   }
   plant(129, 8);
 
-  // ── 회의실 (오른쪽 뒤) ──
-  floor(142, 12, 194, 50, C.RUG);
+  // ── 회의실 A·B (오른쪽 뒤) ── 영역은 MEETING_ROOM_ZONES와 맞춘다
   glassWall(135, 2, 135, 40);
   glassWall(135, 52, 135, 60);
   glassWall(135, 60, 199, 60);
-  g.box(148, F + 8, 2, 188, F + 19, 3, C.METAL); // 화이트보드
-  g.box(149, F + 9, 2, 187, F + 18, 3, C.WHITE);
-  g.box(153, F + 13, 2, 163, F + 14, 3, C.BLUE);
-  g.box(153, F + 11, 2, 170, F + 12, 3, C.RED);
-  g.box(150, F + 6, 24, 188, F + 7, 38, C.WOOD);
-  for (const [x, z] of [[152, 26], [185, 26], [152, 35], [185, 35]]) g.box(x, F, z, x + 1, F + 6, z + 1, C.METAL);
-  for (const cx of [156, 165, 174, 183]) {
+  glassWall(177, 2, 177, 40); // A·B 사이 칸막이 (z 40~52는 출입구)
+  glassWall(177, 52, 177, 60);
+  // A: 6인 회의실
+  floor(140, 12, 173, 50, C.RUG);
+  g.box(141, F + 8, 2, 171, F + 19, 3, C.METAL); // 화이트보드
+  g.box(142, F + 9, 2, 170, F + 18, 3, C.WHITE);
+  g.box(146, F + 13, 2, 156, F + 14, 3, C.BLUE);
+  g.box(146, F + 11, 2, 162, F + 12, 3, C.RED);
+  g.box(145, F + 6, 24, 169, F + 7, 38, C.WOOD);
+  for (const [x, z] of [[147, 26], [166, 26], [147, 35], [166, 35]]) g.box(x, F, z, x + 1, F + 6, z + 1, C.METAL);
+  for (const cx of [148, 157, 166]) {
     sideChair(cx, 20, 'n');
     sideChair(cx, 42, 's');
   }
-  sprout(166, F + 7, 31);
-  sprout(170, F + 7, 30);
-  plant(141, 7);
-  plant(194, 8);
+  sprout(156, F + 7, 31);
+  plant(140, 7);
+  // B: 4인 회의실 (화면 공유용 TV)
+  floor(180, 12, 197, 50, C.RUG);
+  g.box(181, F + 9, 2, 196, F + 18, 3, C.BLACK);
+  g.box(182, F + 10, 2, 195, F + 17, 3, C.SCREEN);
+  g.box(184, F + 6, 22, 193, F + 7, 40, C.WOOD);
+  for (const [x, z] of [[185, 24], [191, 24], [185, 37], [191, 37]]) g.box(x, F, z, x + 1, F + 6, z + 1, C.METAL);
+  sideChair(181, 26, 'w');
+  sideChair(181, 36, 'w');
+  sideChair(196, 26, 'e');
+  sideChair(196, 36, 'e');
   plant(194, 54);
+
+  // ── 회의실 C: 4인 포커스룸 (오른쪽 가운데, 서버실 옆) ──
+  floor(148, 85, 169, 106, C.RUG);
+  glassWall(147, 84, 169, 84);
+  glassWall(147, 84, 147, 91);
+  glassWall(147, 99, 147, 107); // z 91~99는 출입구
+  glassWall(147, 106, 170, 106);
+  g.ellipsoid(158, F + 6.5, 95, 4.5, 0.5, 4.5, C.WOOD);
+  g.box(157, F, 94, 159, F + 6, 96, C.METAL);
+  sprout(158, F + 7, 95);
+  sideChair(158, 88, 'n');
+  sideChair(158, 102, 's');
+  sideChair(151, 95, 'w');
+  sideChair(165, 95, 'e');
 
   // ── 서버실 (오른쪽 앞) ──
   floor(170, 86, 199, 126, C.FLOOR_DARK);
@@ -340,7 +382,7 @@ export function buildOfficeRoom(): OfficeRoom {
     pairL,
     { x: 88, y: F, z: 17, pose: 'stand', facing: TO_CAMERA },
     { x: 35, y: F + 4, z: 10, pose: 'sit', facing: FACING.s },
-    { x: 165, y: F + 4, z: 20, pose: 'desk', facing: FACING.s },
+    { x: 157, y: F + 4, z: 20, pose: 'desk', facing: FACING.s },
     { x: 184, y: F, z: 106, pose: 'stand', facing: TO_CAMERA },
   ];
 
