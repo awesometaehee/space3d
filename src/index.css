@@ -14,7 +14,10 @@ body { margin: 0; background: #fff; overflow: hidden; }
 button { font: inherit; color: inherit; }
 
 /* ── 화면 전체를 쓰는 디오라마 ───────────────── */
-.space { position: relative; height: 100%; background: #fff; }
+.space {
+  position: relative; height: 100%;
+  background: linear-gradient(160deg, #eef2ff 0%, #f6f4fb 45%, #fdf3ee 100%);
+}
 .diorama-stage { position: absolute; inset: 0 0 var(--bar-height) 0; }
 .diorama-view, .diorama-skeleton { position: absolute; inset: 0; }
 .diorama-skeleton { display: grid; place-items: center; color: var(--muted); font-size: 13px; }
@@ -80,7 +83,9 @@ button { font: inherit; color: inherit; }
 .statusbar {
   position: absolute; left: 0; right: 0; bottom: 0; height: var(--bar-height);
   display: flex; align-items: center; justify-content: center; gap: 26px;
-  padding: 0 20px; background: #fff;
+  padding: 0 20px;
+  background: linear-gradient(90deg, #e3e9fc 0%, #ece7f6 50%, #f8e7de 100%);
+  border-top: 1px solid rgba(23, 24, 28, 0.06);
   font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow-x: auto;
 }
 .statusbar strong { color: var(--ink); font-weight: 700; }
