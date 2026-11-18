@@ -1,9 +1,25 @@
 import { useEffect, useRef } from 'react';
-import { DioramaEngine, type EngineStats } from './DioramaEngine';
+import { DioramaEngine, type EngineStats, type RoomHighlight } from './DioramaEngine';
 import { STATUS_LABEL, type Member } from '../data/presence';
+
+/** 회의실 위에 띄우는 이름표 */
+export interface RoomLabel {
+  roomId: string;
+  text: string;
+  tone: RoomHighlight;
+}
 
 interface Props {
   members: Member[];
+  /** 회의실 id → 강조 상태 */
+  roomHighlights: Map<string, RoomHighlight>;
+  roomLabels: RoomLabel[];
+  /** 카메라를 맞출 회의실. 빈 목록이면 처음 시점으로 돌아간다 */
+  focusRoomIds: string[];
+  /** 화면 오른쪽을 가리는 패널 폭(px). 초점을 그만큼 왼쪽으로 비킨다 */
+  focusInsetRight?: number;
+  onRoomPick: (roomId: string) => void;
+  onRoomHover: (roomId: string | null) => void;
   selectedId: string | null;
   showStats: boolean;
   onSelect: (id: string | null) => void;
@@ -16,14 +32,29 @@ const formatStats = (s: EngineStats) =>
   `지오메트리 ${(s.geometryBytes / 1024).toFixed(0)}KB · 장면 생성 ${s.buildMs.toFixed(0)}ms · 누적 렌더 ${s.renders}회`;
 
 /** three.js를 포함하는 무거운 부분. 위젯이 화면에 보일 때 지연 로드된다. */
-export default function DioramaView({ members, selectedId, showStats, onSelect, onUnavailable }: Props) {
+export default function DioramaView({
+  members,
+  roomHighlights,
+  roomLabels,
+  focusRoomIds,
+  focusInsetRight = 0,
+  onRoomPick,
+  onRoomHover,
+  selectedId,
+  showStats,
+  onSelect,
+  onUnavailable,
+}: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const statsRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<DioramaEngine | null>(null);
   const labels = useRef(new Map<string, HTMLElement>()).current;
+  const roomLabelEls = useRef(new Map<string, HTMLElement>()).current;
+  const latest = useRef({ roomHighlights, focusRoomIds, focusInsetRight });
+  latest.current = { roomHighlights, focusRoomIds, focusInsetRight };
   const lastStats = useRef<EngineStats | null>(null);
-  const callbacks = useRef({ onSelect, onUnavailable });
-  callbacks.current = { onSelect, onUnavailable };
+  const callbacks = useRef({ onSelect, onUnavailable, onRoomPick, onRoomHover });
+  callbacks.current = { onSelect, onUnavailable, onRoomPick, onRoomHover };
 
   // 좌석 배정은 구성원 목록(순서)이 바뀔 때만 다시 한다. 상태 변화로는 엔진을 재생성하지 않는다.
   const memberKey = members.map((m) => m.id).join(',');
@@ -36,7 +67,10 @@ export default function DioramaView({ members, selectedId, showStats, onSelect, 
       engine = new DioramaEngine(host, {
         memberIds: memberKey.split(','),
         labels,
+        roomLabels: roomLabelEls,
         onSelect: (id) => callbacks.current.onSelect(id),
+        onRoomPick: (id) => callbacks.current.onRoomPick(id),
+        onRoomHover: (id) => callbacks.current.onRoomHover(id),
         wheelZoom: true, // 화면 전체를 쓰므로 휠 확대를 켠다
         onAfterRender: (stats) => {
           lastStats.current = stats;
@@ -49,11 +83,37 @@ export default function DioramaView({ members, selectedId, showStats, onSelect, 
       return;
     }
     engineRef.current = engine;
+    // 엔진이 새로 만들어졌을 때도 지금의 회의실 강조·초점을 이어받는다
+    engine.setRoomHighlights(latest.current.roomHighlights);
+    if (latest.current.focusRoomIds.length || latest.current.focusInsetRight) {
+      engine.focusRooms(latest.current.focusRoomIds, latest.current.focusInsetRight);
+    }
     return () => {
       engineRef.current = null;
       engine.dispose();
     };
-  }, [memberKey, labels]);
+  }, [memberKey, labels, roomLabelEls]);
+
+  const highlightKey = [...roomHighlights].map(([id, s]) => `${id}:${s}`).join(',');
+  useEffect(() => {
+    engineRef.current?.setRoomHighlights(latest.current.roomHighlights);
+  }, [highlightKey]);
+
+  // 초점 방이나 패널 폭이 바뀌면 카메라를 다시 맞춘다
+  const focusKey = `${focusRoomIds.join(',')}|${focusInsetRight}`;
+  const lastFocus = useRef('|0');
+  useEffect(() => {
+    if (focusKey === lastFocus.current) return;
+    lastFocus.current = focusKey;
+    const { focusRoomIds: ids, focusInsetRight: inset } = latest.current;
+    engineRef.current?.focusRooms(ids, inset);
+  }, [focusKey]);
+
+  // 새로 생긴 회의실 이름표를 제자리로 옮긴다
+  const roomLabelKey = roomLabels.map((l) => `${l.roomId}:${l.tone}:${l.text}`).join('|');
+  useEffect(() => {
+    engineRef.current?.requestRender();
+  }, [roomLabelKey]);
 
   useEffect(() => {
     engineRef.current?.setPresence(new Map(members.map((m) => [m.id, m.status])));
@@ -82,6 +142,23 @@ export default function DioramaView({ members, selectedId, showStats, onSelect, 
           >
             <span className="dot" aria-hidden="true" />
             {m.name}
+          </button>
+        ))}
+        {roomLabels.map((l) => (
+          <button
+            key={l.roomId}
+            type="button"
+            ref={(el) => {
+              if (el) roomLabelEls.set(l.roomId, el);
+              else roomLabelEls.delete(l.roomId);
+            }}
+            className={`room-label is-${l.tone}`}
+            disabled={l.tone === 'booked'}
+            onClick={() => onRoomPick(l.roomId)}
+            onMouseEnter={() => onRoomHover(l.roomId)}
+            onMouseLeave={() => onRoomHover(null)}
+          >
+            {l.text}
           </button>
         ))}
       </div>

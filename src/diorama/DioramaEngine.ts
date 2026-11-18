@@ -1,11 +1,13 @@
 import {
   ACESFilmicToneMapping,
+  BoxGeometry,
   BufferAttribute,
   BufferGeometry,
   DirectionalLight,
   Group,
   HemisphereLight,
   Mesh,
+  MeshBasicMaterial,
   MeshLambertMaterial,
   OrthographicCamera,
   PCFShadowMap,
@@ -21,7 +23,7 @@ import { AO_FULL, AO_SOFT, greedyMesh } from './voxel/greedyMesh';
 import type { VoxelGrid } from './voxel/VoxelGrid';
 import { buildLinearPalette } from './scene/palette';
 import { createVoxelMaterial } from './voxelMaterial';
-import { buildOfficeRoom, ROOM } from './scene/officeRoom';
+import { buildOfficeRoom, FLOOR_TOP, GLASS_HEIGHT, MEETING_ROOM_ZONES, ROOM } from './scene/officeRoom';
 import { ANIMAL_GRID, ANIMAL_LOOKS, ANIMAL_SCALE, SIT_BASE, buildAnimal, gridTop } from './scene/character';
 
 export interface EngineStats {
@@ -39,6 +41,12 @@ export interface EngineOptions {
   /** id → 이름표 DOM. 매 렌더마다 화면 좌표로 옮긴다. */
   labels: Map<string, HTMLElement>;
   onSelect: (id: string | null) => void;
+  /** 회의실 id → 이름표 DOM (있을 때만 위치를 맞춘다) */
+  roomLabels?: Map<string, HTMLElement>;
+  /** 강조된(고를 수 있는) 회의실을 장면에서 눌렀을 때 */
+  onRoomPick?: (roomId: string) => void;
+  /** 고를 수 있는 회의실 위에 포인터가 올라가거나 벗어날 때 */
+  onRoomHover?: (roomId: string | null) => void;
   /** 휠·핀치 확대를 켠다. 스크롤되는 페이지 안에 넣을 때는 끄는 편이 좋다 */
   wheelZoom?: boolean;
   onAfterRender?: (stats: EngineStats) => void;
@@ -46,11 +54,38 @@ export interface EngineOptions {
 
 const MAX_PIXEL_RATIO = 1.5;
 const ZOOM_MIN = 0.8;
+/** 넓은 패널 옆 전체 보기에서 허용하는 가장 작은 줌 */
+const OVERVIEW_ZOOM_MIN = 0.4;
 const ZOOM_MAX = 4;
 const POLAR = 58;
 /** 그림자 지도 한 변(픽셀). 2048이면 GPU 메모리 약 16MB */
 const SHADOW_MAP_SIZE = 2048;
 const deg = (d: number) => (d * Math.PI) / 180;
+
+/**
+ * 회의실 강조 상태
+ * - candidate: 에이전트가 제안한 후보 (누를 수 있다)
+ * - active: 지금 보고 있거나 고른 방
+ * - booked: 이번 대화에서 예약한 방
+ */
+export type RoomHighlight = 'candidate' | 'active' | 'booked';
+
+const HIGHLIGHT_STYLE: Record<RoomHighlight, { color: number; floor: number; volume: number }> = {
+  candidate: { color: 0x4f63e6, floor: 0.22, volume: 0.06 },
+  active: { color: 0x4f63e6, floor: 0.5, volume: 0.16 },
+  booked: { color: 0x26a06b, floor: 0.32, volume: 0.08 },
+};
+const FOCUS_MS = 450;
+
+interface RoomOverlay {
+  floor: Mesh<BoxGeometry, MeshBasicMaterial>;
+  volume: Mesh<BoxGeometry, MeshBasicMaterial>;
+  /** 이름표 위치 */
+  anchor: Vector3;
+  /** 바닥 중심 (카메라 초점) */
+  center: Vector3;
+  size: number;
+}
 
 /**
  * 복셀 사무실 디오라마 렌더러.
@@ -76,6 +111,11 @@ export class DioramaEngine {
   private readonly geometries: BufferGeometry[] = [];
   private readonly characters = new Map<string, { mesh: Mesh; anchor: Vector3 }>();
   private readonly pickables: Mesh[] = [];
+  /** 회의실별 강조 메시: 바닥판(floor)과 공간 덩어리(volume) */
+  private readonly rooms = new Map<string, RoomOverlay>();
+  private roomStates = new Map<string, RoomHighlight>();
+  private hoveredRoom: string | null = null;
+  private focusRaf = 0;
   private readonly resizeObserver: ResizeObserver;
   private readonly intersectionObserver: IntersectionObserver;
   private readonly raycaster = new Raycaster();
@@ -135,6 +175,8 @@ export class DioramaEngine {
 
     this.canvas.addEventListener('pointerdown', this.onPointerDown);
     this.canvas.addEventListener('pointerup', this.onPointerUp);
+    this.canvas.addEventListener('pointermove', this.onPointerMove);
+    this.canvas.addEventListener('pointerleave', this.onPointerLeave);
     this.canvas.addEventListener('webglcontextlost', this.onContextLost);
     this.canvas.addEventListener('webglcontextrestored', this.requestRender);
     document.addEventListener('visibilitychange', this.onVisibility);
@@ -182,6 +224,7 @@ export class DioramaEngine {
     const glass = this.toMesh(room.glass, palette, null, this.glassMaterial);
     glass.renderOrder = 1; // 불투명한 것들 뒤에 그린다
     root.add(glass);
+    this.buildRoomOverlays(root);
 
     room.seats.forEach((seat, i) => {
       const id = this.options.memberIds[i];
@@ -236,6 +279,111 @@ export class DioramaEngine {
     this.scene.add(lampLight);
   }
 
+  /** 회의실마다 반투명 바닥판과 공간 덩어리를 만들어 두고, 강조할 때만 보인다. */
+  private buildRoomOverlays(root: Group): void {
+    for (const zone of MEETING_ROOM_ZONES) {
+      const w = zone.x1 - zone.x0;
+      const d = zone.z1 - zone.z0;
+      const cx = (zone.x0 + zone.x1) / 2;
+      const cz = (zone.z0 + zone.z1) / 2;
+      const make = (height: number, y: number) => {
+        const geometry = new BoxGeometry(w, height, d);
+        this.geometries.push(geometry);
+        const material = new MeshBasicMaterial({ transparent: true, depthWrite: false });
+        const mesh = new Mesh(geometry, material);
+        mesh.position.set(cx, y, cz);
+        mesh.visible = false;
+        mesh.renderOrder = 2;
+        mesh.userData.roomId = zone.id;
+        root.add(mesh);
+        return mesh;
+      };
+      const floor = make(0.4, FLOOR_TOP + 0.25);
+      const volume = make(GLASS_HEIGHT, FLOOR_TOP + GLASS_HEIGHT / 2 + 0.05);
+      const anchor = new Vector3(cx, FLOOR_TOP + GLASS_HEIGHT + 2, cz).add(root.position);
+      const center = new Vector3(cx, FLOOR_TOP, cz).add(root.position);
+      this.rooms.set(zone.id, { floor, volume, anchor, center, size: Math.max(w, d) });
+    }
+  }
+
+  /** 회의실 강조 상태를 바꾼다. 목록에 없는 방은 강조를 끈다. */
+  setRoomHighlights(states: Map<string, RoomHighlight>): void {
+    this.roomStates = states;
+    for (const [id, room] of this.rooms) {
+      const state = states.get(id);
+      room.floor.visible = room.volume.visible = !!state;
+      if (!state) continue;
+      const style = HIGHLIGHT_STYLE[state];
+      room.floor.material.color.setHex(style.color);
+      room.floor.material.opacity = style.floor;
+      room.volume.material.color.setHex(style.color);
+      room.volume.material.opacity = style.volume;
+    }
+    if (this.hoveredRoom && !this.isPickable(this.hoveredRoom)) this.setHoveredRoom(null);
+    this.requestRender();
+  }
+
+  private isPickable(id: string): boolean {
+    const state = this.roomStates.get(id);
+    return state === 'candidate' || state === 'active';
+  }
+
+  /**
+   * 주어진 회의실들이 화면 가운데 오도록 카메라를 부드럽게 옮긴다. 빈 목록이면 처음 위치로.
+   * 연속 루프 대신 옮기는 동안만 프레임을 그린다.
+   * insetRight: 화면 오른쪽을 가리는 패널 폭(px). 그만큼 왼쪽으로 비켜서 가운데를 맞춘다.
+   */
+  focusRooms(ids: string[], insetRight = 0): void {
+    const targets = ids.map((id) => this.rooms.get(id)).filter((r): r is RoomOverlay => !!r);
+    const toTarget = new Vector3();
+    let toZoom = 1;
+    if (targets.length) {
+      const min = targets[0].center.clone();
+      const max = targets[0].center.clone();
+      let extent = 0;
+      for (const r of targets) {
+        min.min(r.center);
+        max.max(r.center);
+        extent = Math.max(extent, r.size);
+      }
+      toTarget.addVectors(min, max).multiplyScalar(0.5);
+      const span = min.distanceTo(max) + extent;
+      // 방(들)이 화면의 절반쯤 차지하도록 하되 너무 가까이 붙지는 않는다
+      toZoom = Math.min(1.8, Math.max(1.1, (Math.hypot(ROOM.W, ROOM.D) * 0.5) / span));
+    } else if (insetRight > 0) {
+      // 전체 보기 + 넓은 패널: 남은 왼쪽 공간에 사무실 전체가 들어오도록 줌 아웃한다
+      const visible = Math.max(0.3, (this.width - Math.min(insetRight, this.width * 0.7)) / this.width);
+      toZoom = Math.max(OVERVIEW_ZOOM_MIN, visible * 0.96);
+    }
+    if (insetRight > 0) {
+      // 화면 오른쪽 방향으로 초점을 옮기면 장면은 왼쪽으로 비켜 보인다
+      const right = new Vector3().setFromMatrixColumn(this.camera.matrixWorld, 0);
+      const worldPerPx = (this.camera.right - this.camera.left) / toZoom / this.width;
+      const cap = targets.length ? 0.5 : 0.7;
+      toTarget.addScaledVector(right, (Math.min(insetRight, this.width * cap) / 2) * worldPerPx);
+    }
+    // 휠 확대 한계보다 더 줌 아웃해야 할 때는 한계를 잠시 낮춘다 (OrbitControls가 되돌리지 않게)
+    this.controls.minZoom = Math.min(ZOOM_MIN, toZoom);
+    const fromTarget = this.controls.target.clone();
+    const fromZoom = this.camera.zoom;
+    const offset = this.camera.position.clone().sub(fromTarget);
+    const started = performance.now();
+    cancelAnimationFrame(this.focusRaf);
+    const step = () => {
+      if (this.disposed) return;
+      const t = Math.min(1, (performance.now() - started) / FOCUS_MS);
+      const k = 1 - Math.pow(1 - t, 3);
+      this.controls.target.lerpVectors(fromTarget, toTarget, k);
+      this.camera.position.copy(this.controls.target).add(offset);
+      this.camera.zoom = fromZoom + (toZoom - fromZoom) * k;
+      this.camera.updateProjectionMatrix();
+      this.controls.update();
+      this.render();
+      this.focusRaf = t < 1 ? requestAnimationFrame(step) : 0;
+    };
+    this.focusRaf = requestAnimationFrame(step);
+  }
+
   /** 부재인 구성원은 자리에서 캐릭터를 숨긴다. */
   setPresence(statusById: Map<string, string>): void {
     for (const [id, { mesh }] of this.characters) {
@@ -246,7 +394,7 @@ export class DioramaEngine {
   }
 
   zoomBy(factor: number): void {
-    this.camera.zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, this.camera.zoom * factor));
+    this.camera.zoom = Math.min(ZOOM_MAX, Math.max(this.controls.minZoom, this.camera.zoom * factor));
     this.camera.updateProjectionMatrix();
     this.requestRender();
   }
@@ -286,13 +434,22 @@ export class DioramaEngine {
   private positionLabels(): void {
     for (const [id, { anchor }] of this.characters) {
       const el = this.options.labels.get(id);
-      if (!el) continue;
-      this.projected.copy(anchor).project(this.camera);
-      const x = Math.round((this.projected.x * 0.5 + 0.5) * this.width);
-      const y = Math.round((-this.projected.y * 0.5 + 0.5) * this.height);
-      el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`;
-      el.style.visibility = 'visible';
+      if (el) this.placeLabel(el, anchor);
     }
+    const roomLabels = this.options.roomLabels;
+    if (!roomLabels) return;
+    for (const [id, { anchor }] of this.rooms) {
+      const el = roomLabels.get(id);
+      if (el) this.placeLabel(el, anchor);
+    }
+  }
+
+  private placeLabel(el: HTMLElement, anchor: Vector3): void {
+    this.projected.copy(anchor).project(this.camera);
+    const x = Math.round((this.projected.x * 0.5 + 0.5) * this.width);
+    const y = Math.round((-this.projected.y * 0.5 + 0.5) * this.height);
+    el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`;
+    el.style.visibility = 'visible';
   }
 
   private resize(): void {
@@ -331,15 +488,47 @@ export class DioramaEngine {
     const down = this.downAt;
     this.downAt = null;
     if (!down || Math.hypot(event.clientX - down.x, event.clientY - down.y) > 5) return; // 드래그는 선택이 아니다
+    this.aim(event);
+    const hit = this.raycaster.intersectObjects(this.pickables, false).find((h) => h.object.visible);
+    if (hit) return this.options.onSelect(hit.object.userData.id as string);
+    const room = this.pickableRoomAt();
+    if (room && this.options.onRoomPick) return this.options.onRoomPick(room);
+    this.options.onSelect(null);
+  };
+
+  private aim(event: PointerEvent): void {
     const rect = this.canvas.getBoundingClientRect();
     const pointer = new Vector2(
       ((event.clientX - rect.left) / rect.width) * 2 - 1,
       -((event.clientY - rect.top) / rect.height) * 2 + 1,
     );
     this.raycaster.setFromCamera(pointer, this.camera);
-    const hit = this.raycaster.intersectObjects(this.pickables, false).find((h) => h.object.visible);
-    this.options.onSelect(hit ? (hit.object.userData.id as string) : null);
+  }
+
+  /** 지금 광선이 지나는 "고를 수 있는" 회의실 (aim 다음에 부른다) */
+  private pickableRoomAt(): string | null {
+    const volumes: Mesh[] = [];
+    for (const [id, room] of this.rooms) if (this.isPickable(id)) volumes.push(room.volume);
+    if (!volumes.length) return null;
+    const hit = this.raycaster.intersectObjects(volumes, false)[0];
+    return hit ? (hit.object.userData.roomId as string) : null;
+  }
+
+  private setHoveredRoom(id: string | null): void {
+    if (id === this.hoveredRoom) return;
+    this.hoveredRoom = id;
+    this.canvas.style.cursor = id ? 'pointer' : '';
+    this.options.onRoomHover?.(id);
+  }
+
+  private readonly onPointerMove = (event: PointerEvent): void => {
+    if (event.buttons !== 0) return; // 회전 중에는 건너뛴다
+    if (![...this.roomStates.keys()].some((id) => this.isPickable(id))) return this.setHoveredRoom(null);
+    this.aim(event);
+    this.setHoveredRoom(this.pickableRoomAt());
   };
+
+  private readonly onPointerLeave = (): void => this.setHoveredRoom(null);
 
   dispose(): void {
     if (this.disposed) return;
@@ -350,6 +539,13 @@ export class DioramaEngine {
     document.removeEventListener('visibilitychange', this.onVisibility);
     this.canvas.removeEventListener('pointerdown', this.onPointerDown);
     this.canvas.removeEventListener('pointerup', this.onPointerUp);
+    this.canvas.removeEventListener('pointermove', this.onPointerMove);
+    this.canvas.removeEventListener('pointerleave', this.onPointerLeave);
+    cancelAnimationFrame(this.focusRaf);
+    for (const room of this.rooms.values()) {
+      room.floor.material.dispose();
+      room.volume.material.dispose();
+    }
     this.canvas.removeEventListener('webglcontextlost', this.onContextLost);
     this.canvas.removeEventListener('webglcontextrestored', this.requestRender);
     this.controls.dispose();
