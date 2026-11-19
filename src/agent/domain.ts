@@ -49,6 +49,11 @@ export interface DomainUI {
     close: (state: AgentState) => AgentState;
     Component: ComponentType<WorkspaceProps>;
   };
+  /**
+   * (선택) 복셀 중심 레이아웃(좁은 패널)이 필요한지. 없으면 scene이 있는 영역을 공간 업무로 본다.
+   * 단계에 따라 달라지는 영역(일정 조율: 회의실을 고를 때만)은 공유 상태로 판단한다.
+   */
+  spatial?: (state: AgentState) => boolean;
   /** (선택) 이 영역의 카드가 복셀에 보여 줄 공간 정보 */
   scene?: (call: ToolCall, args: Record<string, unknown> | undefined, streaming: boolean) => SceneHint | null;
 }

@@ -3,7 +3,7 @@ import { STATUS_LABEL, usePresence, type Member, type PresenceStatus } from '../
 import { MEETING_ROOMS } from '../data/meetingRooms';
 import { AgentPanel } from '../agent/AgentPanel';
 import { parsePartialJson, type Message, type ToolCall } from '../agent/agui';
-import { DISPLAY_ONLY_TOOLS, FRONTEND_TOOLS, domainById, isSpatialDomain, openWorkspace, sceneFor } from '../agent/catalog';
+import { DISPLAY_ONLY_TOOLS, FRONTEND_TOOLS, domainById, isSpatial, openWorkspace, sceneFor } from '../agent/catalog';
 import { useApprovals } from '../agent/domains/approval/workspace';
 import { pendingToolCalls, type Conversation } from '../agent/conversation';
 import type { SceneHint } from '../agent/domain';
@@ -92,7 +92,7 @@ export function DioramaWidget() {
 
   // 레이아웃: 복셀이 필요한 업무면 지금처럼 좁은 패널 + 방 확대,
   // 그 밖의 업무(결재 등)와 빈 패널이면 넓은 패널 + 사무실 전체를 왼쪽에 줌 아웃
-  const spatial = isSpatialDomain(conversation.state.activeDomain);
+  const spatial = isSpatial(conversation.state);
   const workspaceDomain = openWorkspace(conversation.state);
   const panelWidth = workspaceDomain
     ? panelWorkspaceWidth(viewportWidth)
@@ -229,6 +229,7 @@ export function DioramaWidget() {
                 ...conversation.state,
                 activeDomain: null,
                 meetingRoom: { ...conversation.state.meetingRoom, request: null },
+                schedule: { ...conversation.state.schedule, request: null, stage: null },
               });
               setHoveredRoom(null);
               inputRef.current?.focus();

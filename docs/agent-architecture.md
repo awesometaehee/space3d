@@ -102,7 +102,7 @@ interface AgentState {
 
 ### 레이아웃 전환
 
-에이전트는 처리할 업무 영역을 정하자마자 공유 상태 `activeDomain`을 바꾼다 (`STATE_DELTA`, 답변보다 먼저 온다). 화면은 그 영역이 `scene`을 가졌는지(`catalog.isSpatialDomain`)로 레이아웃을 고른다.
+에이전트는 처리할 업무 영역을 정하자마자 공유 상태 `activeDomain`을 바꾼다 (`STATE_DELTA`, 답변보다 먼저 온다). 화면은 그 영역이 공간 업무인지(`catalog.isSpatial`)로 레이아웃을 고른다. 기본은 `scene`을 가졌는지이고, 단계에 따라 달라지는 영역은 `DomainUI.spatial(state)`로 정한다 (일정 조율: 회의실을 고를 때만 복셀 중심).
 
 | 경우 | 패널 | 복셀 |
 |---|---|---|

@@ -22,7 +22,12 @@ interface Props<S> {
   onClose: () => void;
 }
 
-const SUGGESTIONS = ['결재할 문서 보여줘', '어제 택시비 23,000원 지출결의 올려줘', '내일 오후 4명 회의실 잡아줘'];
+const SUGGESTIONS = [
+  '결재할 문서 보여줘',
+  '다음 주 기획팀이랑 1시간 회의 잡아줘',
+  '내일 오후 4명 회의실 잡아줘',
+  '어제 택시비 23,000원 지출결의 올려줘',
+];
 
 /** 에이전트 대화와, 에이전트가 띄운 UI 카드가 순서대로 쌓이는 오른쪽 패널 */
 export function AgentPanel<S>({

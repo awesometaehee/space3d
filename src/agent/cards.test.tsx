@@ -20,6 +20,16 @@ async function collectCalls(): Promise<ToolCall[]> {
   await room.answer({ confirmed: true, title: '회의' });
   grab(room);
 
+  const sc = setup();
+  await sc.say('일정 조율해줘');
+  await sc.answer({ attendeeIds: ['p1', 'p2'] });
+  const time = JSON.parse(sc.card!.function.arguments).candidates[0];
+  await sc.answer({ date: time.date, start: time.start, end: time.end });
+  const free = JSON.parse(sc.card!.function.arguments).rooms.find((r: { fits: boolean; free: boolean }) => r.fits && r.free);
+  await sc.answer({ roomId: free?.id ?? null });
+  await sc.answer({ confirmed: true, title: '협의', note: '' });
+  grab(sc);
+
   const ap = setup();
   await ap.say('어제 택시비 23,000원 지출결의 올려줘');
   const { draft } = JSON.parse(ap.card!.function.arguments);

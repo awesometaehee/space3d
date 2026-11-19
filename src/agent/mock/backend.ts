@@ -1,4 +1,5 @@
 import { ApprovalStore } from '../../data/approvals';
+import { CalendarStore } from '../../data/calendar';
 import { BookingStore } from '../../data/meetingRooms';
 import { emptyState, type AgentState } from '../state';
 
@@ -9,9 +10,11 @@ import { emptyState, type AgentState } from '../state';
 export class GroupwareBackend {
   readonly rooms = new BookingStore();
   readonly approvals: ApprovalStore;
+  readonly calendar: CalendarStore;
 
   constructor(now: () => Date = () => new Date()) {
     this.approvals = new ApprovalStore(now);
+    this.calendar = new CalendarStore(now);
   }
 
   /** 화면이 처음 열릴 때의 공유 상태 (AG-UI STATE_SNAPSHOT에 해당) */
