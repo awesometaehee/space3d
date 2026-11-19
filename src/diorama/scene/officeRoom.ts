@@ -47,6 +47,17 @@ export const MEETING_ROOM_ZONES: readonly RoomZone[] = [
   { id: 'room-c', x0: 148, z0: 85, x1: 169, z1: 106 },
 ];
 
+/**
+ * 자율 좌석: 업무 공간에서 주인이 없는 책상 4곳 (buildOfficeRoom의 빈 workstation과 맞춘다).
+ * 회의실처럼 강조·클릭·이름표에 쓴다. 높이는 책상 높이 정도로 낮게.
+ */
+export const HOT_DESK_ZONES: readonly (RoomZone & { height: number })[] = [
+  { id: 'desk-1', x0: 80, z0: 64, x1: 97, z1: 82, height: 12 }, // (88,68) 남향, 노트북
+  { id: 'desk-2', x0: 64, z0: 81, x1: 81, z1: 99, height: 12 }, // (72,94) 북향, 모니터
+  { id: 'desk-3', x0: 124, z0: 80, x1: 144, z1: 97, height: 12 }, // (138,88) 서향, 듀얼 모니터
+  { id: 'desk-4', x0: 138, z0: 122, x1: 155, z1: 141, height: 12 }, // (146,136) 북향, 노트북
+];
+
 /** 항상 같은 배치가 나오도록 고정 시드 난수를 쓴다. */
 function seeded(seed: number): () => number {
   let s = seed;

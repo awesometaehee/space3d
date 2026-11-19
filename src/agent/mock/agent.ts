@@ -1,18 +1,22 @@
 import type { Agent, AgUiEvent, Message, RunAgentInput } from '../agui';
 import { approvalHandler } from '../domains/approval/handler';
 import { meetingRoomHandler } from '../domains/meetingRoom/handler';
+import { scheduleHandler } from '../domains/schedule/handler';
+import { leaveHandler } from '../domains/leave/handler';
+import { peopleHandler } from '../domains/people/handler';
+import { resourcesHandler } from '../domains/resources/handler';
 import type { AgentState } from '../state';
 import { GroupwareBackend } from './backend';
 import type { HandlerContext, MockHandler } from './types';
 
-/** 업무 영역 처리기 목록. 새 업무는 여기에 추가한다 */
-const HANDLERS: MockHandler[] = [approvalHandler, meetingRoomHandler];
+/** 업무 영역 처리기 목록. 새 업무는 여기에 추가한다. 점수가 같으면 앞의 것이 맡는다 */
+const HANDLERS: MockHandler[] = [approvalHandler, leaveHandler, peopleHandler, resourcesHandler, scheduleHandler, meetingRoomHandler];
 
 /** 이 점수보다 낮으면 어느 영역 일도 아니라고 본다 */
 const MIN_MATCH = 0.3;
 
 const HELP =
-  '지금은 회의실 예약과 전자결재를 도와드릴 수 있어요. 예: "내일 오후 4명 회의실 잡아줘", "결재할 거 보여줘", "어제 택시비 23,000원 지출결의 올려줘"';
+  '지금은 회의실 예약, 일정 조율, 자원 예약, 휴가·근태, 사람 찾기, 전자결재를 도와드릴 수 있어요. 예: "내일 오후 4명 회의실 잡아줘", "다음 주 기획팀이랑 1시간 회의 잡아줘", "내일 법인차 쓸 수 있어?", "금요일 연차 쓸게", "보안 점검 담당자 누구야?", "결재할 거 보여줘"';
 
 export interface MockAgentOptions {
   backend: GroupwareBackend;

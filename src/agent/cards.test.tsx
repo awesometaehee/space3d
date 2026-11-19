@@ -20,6 +20,36 @@ async function collectCalls(): Promise<ToolCall[]> {
   await room.answer({ confirmed: true, title: '회의' });
   grab(room);
 
+  const sc = setup();
+  await sc.say('일정 조율해줘');
+  await sc.answer({ attendeeIds: ['p1', 'p2'] });
+  const time = JSON.parse(sc.card!.function.arguments).candidates[0];
+  await sc.answer({ date: time.date, start: time.start, end: time.end });
+  const free = JSON.parse(sc.card!.function.arguments).rooms.find((r: { fits: boolean; free: boolean }) => r.fits && r.free);
+  await sc.answer({ roomId: free?.id ?? null });
+  await sc.answer({ confirmed: true, title: '협의', note: '' });
+  grab(sc);
+
+  const lv = setup();
+  await lv.say('금요일 연차 쓸게');
+  await lv.answer({ submitted: true, kind: '연차', delegateId: 'm2' });
+  await lv.say('남은 연차 알려줘');
+  await lv.say('이번 주 근무시간');
+  grab(lv);
+
+  const pp = setup();
+  await pp.say('보안 점검 담당자 누구야?');
+  await pp.say('조직도 보여줘');
+  grab(pp);
+
+  const rs = setup();
+  await rs.say('내일 자율석 예약해줘');
+  const desk = JSON.parse(rs.card!.function.arguments).items.find((i: { free: { am: boolean; pm: boolean } }) => i.free.am || i.free.pm);
+  await rs.answer({ resourceId: desk.id, slot: desk.free.am ? 'am' : 'pm' });
+  await rs.answer({ confirmed: true, purpose: '집중 업무' });
+  await rs.say('내 예약 현황');
+  grab(rs);
+
   const ap = setup();
   await ap.say('어제 택시비 23,000원 지출결의 올려줘');
   const { draft } = JSON.parse(ap.card!.function.arguments);
@@ -51,5 +81,5 @@ describe('카드 렌더링', () => {
         }
       }
     }
-  });
+  }, 60_000); // 업무 영역마다 흐름을 끝까지 돌리고 카드마다 수백 번 그려서 오래 걸린다
 });

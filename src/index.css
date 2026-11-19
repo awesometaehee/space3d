@@ -90,6 +90,8 @@ button { font: inherit; color: inherit; }
 }
 .vlabel:hover { background: var(--surface); }
 .vlabel.is-away { color: var(--muted); }
+.vlabel.is-found { background: var(--accent); color: #fff; box-shadow: 0 0 0 3px var(--accent-ring), var(--shadow-sm); z-index: 1; }
+.vlabel.is-found.is-away .dot { box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.6); }
 .vlabel.is-selected { background: var(--ink); color: #fff; }
 .vlabel.is-selected.is-away .dot { box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.6); }
 
@@ -546,11 +548,227 @@ button.ws-row:hover { background: var(--surface-2); }
 .ws .danger { background: var(--warn); color: #fff; }
 .ws button:focus-visible, .ws-search:focus-visible { box-shadow: 0 0 0 3px var(--accent-ring); }
 
+/* ── 일정 조율 카드 ───────────────── */
+.card-note.is-warn { color: var(--warn); }
+.agent-card .link {
+  padding: 0; border: 0; background: none; cursor: pointer;
+  color: var(--accent); font-size: 11.5px; font-weight: 600;
+}
+.agent-card .link:disabled { color: var(--faint); cursor: default; }
+
+/* 참석자 칩: 나는 강조색, 그 시간에 안 되는 사람은 경고색 */
+.person-chips { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 4px; }
+.person-chips li {
+  display: inline-flex; align-items: baseline; gap: 4px; padding: 2px 8px; border-radius: var(--r-pill);
+  background: var(--surface-2); color: var(--ink-2); font-size: 12px; font-weight: 600;
+}
+.person-chips small { color: var(--muted); font-size: 10.5px; font-weight: 500; }
+.person-chips .is-me { background: var(--accent-soft); color: var(--accent); }
+.person-chips .is-missing { background: var(--warn-soft); color: var(--warn); }
+
+.team-groups { display: flex; flex-direction: column; gap: 10px; max-height: 320px; overflow: auto; }
+.team-group header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 12px; }
+.person-toggles { display: flex; flex-wrap: wrap; gap: 4px; }
+.person-toggle {
+  display: inline-flex; align-items: baseline; gap: 4px; height: 28px; padding: 0 10px; cursor: pointer;
+  border: 0; border-radius: var(--r-sm); background: var(--surface-2); color: var(--ink-2);
+  font-size: 12px; font-weight: 600;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+.person-toggle small { color: var(--muted); font-size: 10.5px; font-weight: 500; }
+.person-toggle:hover:not(:disabled) { background: var(--surface-3); }
+.person-toggle[aria-pressed='true'] { background: var(--accent); color: #fff; }
+.person-toggle[aria-pressed='true'] small { color: rgba(255, 255, 255, 0.75); }
+.person-toggle:disabled { cursor: default; }
+
+/* 추천 시간 */
+.time-cands { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: 1fr; gap: 6px; }
+.time-cand {
+  width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  padding: 9px 12px; border: 0; border-radius: var(--r-md); cursor: pointer; text-align: left;
+  background: var(--surface-2);
+  transition: background 0.15s var(--ease), box-shadow 0.15s var(--ease), opacity 0.15s var(--ease);
+}
+.time-cand:hover:not(:disabled) { background: var(--surface); box-shadow: 0 0 0 1.5px var(--accent-ring), var(--shadow-xs); }
+.time-cand:disabled { cursor: default; }
+.time-cand:disabled:not(.is-chosen) { opacity: 0.45; }
+.time-cand.is-chosen { background: var(--accent-soft); box-shadow: 0 0 0 1.5px var(--accent); }
+.time-cand .when { display: flex; align-items: baseline; gap: 8px; color: var(--muted); font-size: 12px; }
+.time-cand .when strong { color: var(--ink); font-size: 13px; font-variant-numeric: tabular-nums; }
+.time-cand .who {
+  padding: 2px 8px; border-radius: var(--r-pill); white-space: nowrap;
+  background: var(--ok-soft); color: var(--ok); font-size: 11px; font-weight: 600;
+}
+.time-cand .who.is-partial { background: var(--warn-soft); color: var(--warn); }
+
+/* 가능 인원 히트맵: 날짜(줄) × 30분 칸(열). 진할수록 많이 가능 */
+.heatmap { display: flex; flex-direction: column; gap: 3px; }
+.heat-row { display: grid; grid-template-columns: 58px 1fr; align-items: center; gap: 6px; }
+.heat-hours { color: var(--faint); font-size: 10px; font-variant-numeric: tabular-nums; }
+.heat-hours span { grid-column: span 2; }
+.heat-day { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.heat-cells { display: grid; grid-template-columns: repeat(18, 1fr); gap: 2px; }
+.heat-cell {
+  height: 18px; padding: 0; border: 0; border-radius: 1px; cursor: pointer;
+  background: color-mix(in srgb, var(--ok) calc(var(--lv) * 85%), var(--surface-2));
+  transition: box-shadow 0.12s var(--ease), filter 0.12s var(--ease);
+}
+.heat-cell:disabled { cursor: default; }
+.heat-cell.is-off {
+  background: repeating-linear-gradient(135deg, var(--surface-2) 0 3px, var(--surface-3) 3px 5px);
+}
+.heat-cell.is-hover { box-shadow: inset 0 0 0 2px var(--accent); filter: brightness(1.05); }
+.heat-cell.is-chosen { background: var(--accent); }
+.heat-legend {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 4px 0 0;
+  color: var(--muted); font-size: 11px;
+}
+.heat-legend .swatch {
+  display: inline-block; width: 10px; height: 10px; border-radius: 1px;
+  background: color-mix(in srgb, var(--ok) calc(var(--lv) * 85%), var(--surface-2));
+}
+.heat-legend .swatch:not(:first-child) { margin-left: 6px; }
+.heat-legend .swatch.is-off { background: repeating-linear-gradient(135deg, var(--surface-2) 0 3px, var(--surface-3) 3px 5px); }
+.heat-legend em { margin-left: auto; font-style: normal; color: var(--faint); }
+
+.confirm-list textarea {
+  width: 100%; padding: 7px 10px; font: inherit; font-size: 12.5px; font-weight: 500; color: var(--ink);
+  background: var(--surface-2); border: 1px solid transparent; border-radius: var(--r-sm); resize: vertical;
+}
+.confirm-list textarea:focus { outline: none; background: var(--surface); border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+.confirm-list textarea:disabled { color: var(--muted); background: transparent; border-color: var(--line); }
+
+.invite-status { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.invite-status li { display: flex; align-items: baseline; gap: 4px; padding: 4px 2px; font-size: 12.5px; font-weight: 600; }
+.invite-status small { color: var(--muted); font-size: 11px; font-weight: 500; }
+.invite-status em { margin-left: auto; font-style: normal; color: var(--muted); font-size: 11.5px; font-weight: 500; }
+
+/* ── 휴가·근태 카드 ───────────────── */
+/* 장면 위 한 줄 안내 (예: 휴가 신청한 날의 사무실 미리보기) */
+.scene-note {
+  position: absolute; left: 16px; top: 16px; margin: 0; padding: 7px 12px;
+  background: var(--surface); border-radius: var(--r-sm); box-shadow: var(--shadow-sm);
+  color: var(--ink-2); font-size: 12px; font-weight: 600; pointer-events: none;
+}
+
+/* 종류 고르기: 붙어 있는 버튼 묶음 */
+.seg { display: flex; gap: 2px; padding: 2px; background: var(--surface-2); border-radius: var(--r-sm); }
+.seg button {
+  flex: 1; height: 30px; border: 0; border-radius: var(--r-xs); cursor: pointer; background: transparent;
+  color: var(--muted); font-size: 12.5px; font-weight: 500;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+.seg button:hover:not(:disabled) { color: var(--ink); }
+.seg button[aria-checked='true'] { background: var(--surface); color: var(--ink); font-weight: 700; box-shadow: var(--shadow-xs); }
+.seg button:disabled:not([aria-checked='true']) { color: var(--faint); cursor: default; }
+
+.date-chips { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 4px; }
+.date-chips li { padding: 2px 8px; border-radius: var(--r-pill); background: var(--accent-soft); color: var(--accent); font-size: 11.5px; font-weight: 600; }
+
+/* 연차 막대 */
+.balance { display: flex; flex-direction: column; gap: 8px; }
+.balance-bar { display: flex; height: 8px; overflow: hidden; border-radius: 1px; background: var(--surface-3); }
+.balance-bar span { height: 100%; transition: width 0.3s var(--ease); }
+.balance-bar .is-used { background: var(--faint); }
+.balance-bar .is-planned { background: color-mix(in srgb, var(--accent) 45%, var(--surface-3)); }
+.balance-bar .is-adding { background: var(--accent); }
+.balance-nums { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 18px; }
+.balance-nums div { display: flex; flex-direction: column; gap: 1px; }
+.balance-nums dt { color: var(--muted); font-size: 11px; }
+.balance-nums dd { margin: 0; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.balance-nums dd small { color: var(--muted); font-weight: 500; font-size: 11px; }
+.balance-nums .is-adding dd { color: var(--accent); }
+.balance-nums .is-over dd { color: var(--warn); }
+
+.leave-field { display: flex; flex-direction: column; gap: 6px; }
+.leave-field h4 { margin: 0; font-size: 12px; font-weight: 700; color: var(--ink-2); }
+.leave-notes { margin: 0; padding: 10px 12px; list-style: none; display: flex; flex-direction: column; gap: 4px; background: var(--warn-soft); border-radius: var(--r-md); }
+.leave-notes li { display: flex; gap: 8px; align-items: baseline; font-size: 12px; color: var(--ink-2); }
+.leave-notes li > span { color: var(--warn); font-weight: 700; }
+.leave-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.leave-list li { display: flex; align-items: baseline; gap: 10px; padding: 6px 2px; font-size: 12.5px; }
+.leave-list li + li { border-top: 1px solid var(--line); }
+.leave-list li > span { width: 96px; flex: none; color: var(--muted); font-size: 12px; }
+.leave-list strong { font-weight: 600; }
+.leave-list em { margin-left: auto; padding: 1px 8px; border-radius: var(--r-pill); font-style: normal; font-size: 11px; font-weight: 600; background: var(--surface-3); color: var(--ink-2); }
+.leave-list em.is-ok { background: var(--ok-soft); color: var(--ok); }
+
+/* 주 근무시간 막대: 40시간 눈금, 52시간이 끝 */
+.work-meter { position: relative; height: 8px; border-radius: 1px; background: var(--surface-3); }
+.work-meter span { position: absolute; inset: 0 auto 0 0; background: var(--accent); border-radius: 1px; }
+.work-meter i { position: absolute; top: -3px; bottom: -3px; width: 1.5px; background: var(--ink-2); }
+.work-meter-legend { position: relative; height: 14px; margin: 2px 0 0; color: var(--muted); font-size: 10.5px; }
+.work-meter-legend span { position: absolute; transform: translateX(-50%); }
+.work-meter-legend span:first-child { left: 0; transform: none; }
+.work-meter-legend span:last-child { right: 0; transform: none; }
+.work-table { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.work-table th, .work-table td { padding: 6px 4px; text-align: left; }
+.work-table thead th { color: var(--muted); font-size: 11px; font-weight: 500; }
+.work-table tbody tr + tr { border-top: 1px solid var(--line); }
+.work-table tbody th { font-weight: 600; }
+.work-table td:last-child, .work-table th:last-child { text-align: right; }
+.work-table .is-leave { color: var(--accent); font-weight: 600; }
+
+/* ── 사람·조직 찾기 카드 ───────────────── */
+.people-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.person-card { display: flex; gap: 12px; padding: 12px; background: var(--surface-2); border-radius: var(--r-md); }
+.person-card .avatar {
+  width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: var(--r-sm);
+  background: var(--accent-soft); color: var(--accent); font-size: 15px; font-weight: 700;
+}
+.person-main { display: flex; flex-direction: column; gap: 5px; min-width: 0; flex: 1; }
+.person-head { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.person-head strong { font-size: 14px; }
+.person-head small { color: var(--muted); font-size: 11.5px; }
+.person-status { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; color: var(--ink-2); font-size: 11.5px; font-weight: 600; }
+.person-status.is-away { color: var(--muted); }
+.person-team { color: var(--muted); font-size: 12px; }
+.person-team em { font-style: normal; color: var(--accent); font-weight: 600; }
+.duty-chips { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 4px; }
+.duty-chips li { padding: 1px 8px; border-radius: var(--r-pill); background: var(--surface); color: var(--ink-2); font-size: 11.5px; font-weight: 500; }
+.duty-chips li.is-match { background: var(--accent); color: #fff; font-weight: 600; }
+.person-contact { margin: 0; display: grid; grid-template-columns: auto 1fr auto 1fr; gap: 2px 8px; font-size: 12px; }
+.person-contact dt { color: var(--muted); }
+.person-contact dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+.org-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.org-team { padding: 10px 12px; background: var(--surface-2); border-radius: var(--r-md); }
+.org-team header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.org-team header strong { font-size: 13px; }
+.org-team header span { color: var(--muted); font-size: 11.5px; }
+.org-team ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.org-team li { display: flex; align-items: center; gap: 6px; padding: 4px 0; font-size: 12.5px; }
+.org-team li + li { border-top: 1px solid var(--line); }
+.org-team li small { color: var(--muted); font-size: 11px; }
+.org-team li em { margin-left: auto; font-style: normal; color: var(--muted); font-size: 11.5px; text-align: right; }
+
+/* ── 자원 예약 카드 ───────────────── */
+.resource-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.resource-row {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+  background: var(--surface-2); border-radius: var(--r-md);
+  transition: box-shadow 0.15s var(--ease), background 0.15s var(--ease), opacity 0.15s var(--ease);
+}
+.resource-row:hover { background: var(--surface); box-shadow: 0 0 0 1.5px var(--accent-ring), var(--shadow-xs); }
+.resource-row.is-off { opacity: 0.5; }
+.resource-row.is-chosen { background: var(--accent-soft); box-shadow: 0 0 0 1.5px var(--accent); }
+.resource-name { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.resource-name strong { font-size: 13px; }
+.resource-name small { color: var(--muted); font-size: 11.5px; }
+.resource-slots { display: grid; grid-template-columns: repeat(3, 48px); gap: 4px; flex: none; }
+.resource-slots .slot { height: 30px; font-size: 12px; }
+.resource-slots .slot.is-wanted { box-shadow: inset 0 0 0 1.5px var(--accent); color: var(--accent); font-weight: 600; }
+.resource-notes { margin: 0; padding: 0 0 0 16px; color: var(--muted); font-size: 11.5px; display: flex; flex-direction: column; gap: 2px; }
+.confirm-list .muted { color: var(--muted); font-weight: 500; font-size: 11.5px; }
+
 /* ── 넓은 패널: 카드가 남는 폭을 쓴다 ───────────────── */
 .doc-body, .doc-main, .doc-side { display: flex; flex-direction: column; gap: 12px; }
 @container (min-width: 600px) {
   .doc-body { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px; align-items: start; }
   .slot-grid { grid-template-columns: repeat(6, 1fr); }
+  .time-cands { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .org-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .heat-cell { height: 22px; }
   .draft-form { grid-template-columns: 44px 1fr 44px 1fr; }
   .draft-form > label:last-of-type { grid-column: 1; } /* '내용'은 새 줄에서 시작 */
   .draft-form > textarea { grid-column: 2 / -1; }

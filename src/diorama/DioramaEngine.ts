@@ -23,7 +23,7 @@ import { AO_FULL, AO_SOFT, greedyMesh } from './voxel/greedyMesh';
 import type { VoxelGrid } from './voxel/VoxelGrid';
 import { buildLinearPalette } from './scene/palette';
 import { createVoxelMaterial } from './voxelMaterial';
-import { buildOfficeRoom, FLOOR_TOP, GLASS_HEIGHT, MEETING_ROOM_ZONES, ROOM } from './scene/officeRoom';
+import { buildOfficeRoom, FLOOR_TOP, GLASS_HEIGHT, HOT_DESK_ZONES, MEETING_ROOM_ZONES, ROOM } from './scene/officeRoom';
 import { ANIMAL_GRID, ANIMAL_LOOKS, ANIMAL_SCALE, SIT_BASE, buildAnimal, gridTop } from './scene/character';
 
 export interface EngineStats {
@@ -76,6 +76,8 @@ const HIGHLIGHT_STYLE: Record<RoomHighlight, { color: number; floor: number; vol
   booked: { color: 0x26a06b, floor: 0.32, volume: 0.08 },
 };
 const FOCUS_MS = 450;
+/** 구성원 자리에 초점을 맞출 때 보는 범위 (복셀 단위). 주변 책상이 함께 보이게 */
+const CHARACTER_FOCUS_SIZE = 40;
 
 interface RoomOverlay {
   floor: Mesh<BoxGeometry, MeshBasicMaterial>;
@@ -281,7 +283,12 @@ export class DioramaEngine {
 
   /** 회의실마다 반투명 바닥판과 공간 덩어리를 만들어 두고, 강조할 때만 보인다. */
   private buildRoomOverlays(root: Group): void {
-    for (const zone of MEETING_ROOM_ZONES) {
+    // 회의실은 유리벽 높이, 자율 좌석은 책상 높이로 덮는다
+    const zones = [
+      ...MEETING_ROOM_ZONES.map((z) => ({ ...z, height: GLASS_HEIGHT })),
+      ...HOT_DESK_ZONES,
+    ];
+    for (const zone of zones) {
       const w = zone.x1 - zone.x0;
       const d = zone.z1 - zone.z0;
       const cx = (zone.x0 + zone.x1) / 2;
@@ -299,8 +306,8 @@ export class DioramaEngine {
         return mesh;
       };
       const floor = make(0.4, FLOOR_TOP + 0.25);
-      const volume = make(GLASS_HEIGHT, FLOOR_TOP + GLASS_HEIGHT / 2 + 0.05);
-      const anchor = new Vector3(cx, FLOOR_TOP + GLASS_HEIGHT + 2, cz).add(root.position);
+      const volume = make(zone.height, FLOOR_TOP + zone.height / 2 + 0.05);
+      const anchor = new Vector3(cx, FLOOR_TOP + zone.height + 2, cz).add(root.position);
       const center = new Vector3(cx, FLOOR_TOP, cz).add(root.position);
       this.rooms.set(zone.id, { floor, volume, anchor, center, size: Math.max(w, d) });
     }
@@ -329,12 +336,20 @@ export class DioramaEngine {
   }
 
   /**
-   * 주어진 회의실들이 화면 가운데 오도록 카메라를 부드럽게 옮긴다. 빈 목록이면 처음 위치로.
+   * 주어진 회의실(또는 구성원 자리)들이 화면 가운데 오도록 카메라를 부드럽게 옮긴다. 빈 목록이면 처음 위치로.
    * 연속 루프 대신 옮기는 동안만 프레임을 그린다.
    * insetRight: 화면 오른쪽을 가리는 패널 폭(px). 그만큼 왼쪽으로 비켜서 가운데를 맞춘다.
    */
   focusRooms(ids: string[], insetRight = 0): void {
-    const targets = ids.map((id) => this.rooms.get(id)).filter((r): r is RoomOverlay => !!r);
+    // 구성원 id면 그 캐릭터 자리 (방보다 작은 범위로 본다)
+    const targets = ids
+      .map((id) => {
+        const room = this.rooms.get(id);
+        if (room) return { center: room.center, size: room.size };
+        const ch = this.characters.get(id);
+        return ch ? { center: ch.anchor, size: CHARACTER_FOCUS_SIZE } : null;
+      })
+      .filter((r): r is { center: Vector3; size: number } => !!r);
     const toTarget = new Vector3();
     let toZoom = 1;
     if (targets.length) {

@@ -1,9 +1,10 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { STATUS_LABEL, usePresence, type Member, type PresenceStatus } from '../data/presence';
 import { MEETING_ROOMS } from '../data/meetingRooms';
+import { RESOURCES, SLOT_LABEL } from '../data/resources';
 import { AgentPanel } from '../agent/AgentPanel';
 import { parsePartialJson, type Message, type ToolCall } from '../agent/agui';
-import { DISPLAY_ONLY_TOOLS, FRONTEND_TOOLS, domainById, isSpatialDomain, openWorkspace, sceneFor } from '../agent/catalog';
+import { DISPLAY_ONLY_TOOLS, FRONTEND_TOOLS, domainById, isSpatial, openWorkspace, sceneFor } from '../agent/catalog';
 import { useApprovals } from '../agent/domains/approval/workspace';
 import { pendingToolCalls, type Conversation } from '../agent/conversation';
 import type { SceneHint } from '../agent/domain';
@@ -46,6 +47,12 @@ function useViewportWidth(): number {
   }, []);
   return width;
 }
+
+/** 복셀에서 강조·선택할 수 있는 공간: 회의실 + 자율 좌석 */
+const SPACES = [
+  ...MEETING_ROOMS.map((r) => ({ id: r.id, name: r.name, info: `${r.capacity}인` })),
+  ...RESOURCES.filter((r) => r.kind === 'desk').map((r) => ({ id: r.id, name: r.name, info: r.detail.split(' · ')[0] })),
+];
 
 // 아래 한 줄에 보여주는 가상 요약. 실제 연동 시 그룹웨어 데이터로 바꾼다.
 const HEADLINE = { label: '오늘의 공지', title: '11월 정기 보안 점검 안내' };
@@ -92,7 +99,7 @@ export function DioramaWidget() {
 
   // 레이아웃: 복셀이 필요한 업무면 지금처럼 좁은 패널 + 방 확대,
   // 그 밖의 업무(결재 등)와 빈 패널이면 넓은 패널 + 사무실 전체를 왼쪽에 줌 아웃
-  const spatial = isSpatialDomain(conversation.state.activeDomain);
+  const spatial = isSpatial(conversation.state);
   const workspaceDomain = openWorkspace(conversation.state);
   const panelWidth = workspaceDomain
     ? panelWorkspaceWidth(viewportWidth)
@@ -100,6 +107,8 @@ export function DioramaWidget() {
       ? PANEL_NARROW
       : panelWideWidth(viewportWidth);
   const approvals = useApprovals(backend.approvals);
+  // 에이전트가 재실 상태를 답할 수 있게 넘겨준다 (실제로는 에이전트 서버가 재실 API를 부른다)
+  useEffect(() => backend.setPresence(members), [members]);
 
   /** 하단 바 바로가기: 에이전트를 거치지 않고 작업 화면을 바로 연다 */
   const openWorkspaceOf = (domainId: string) => {
@@ -108,6 +117,13 @@ export function DioramaWidget() {
     updateState(ws.open);
     setPanelOpen(true);
   };
+
+  // 휴가 신청 중이면 그날 부재 예정인 팀원을 복셀에서 부재로 미리 보여 준다
+  const viewMembers = useMemo(() => {
+    if (!scene.away?.length) return members;
+    const away = new Set(scene.away);
+    return members.map((m) => (away.has(m.id) ? { ...m, status: 'away' as const } : m));
+  }, [members, scene.away]);
 
   const roomHighlights = useMemo(() => {
     const map = new Map<string, RoomHighlight>();
@@ -121,15 +137,12 @@ export function DioramaWidget() {
 
   const roomLabels = useMemo<RoomLabel[]>(() => {
     const labels: RoomLabel[] = [];
-    for (const room of MEETING_ROOMS) {
-      const tone = roomHighlights.get(room.id);
+    for (const space of SPACES) {
+      const tone = roomHighlights.get(space.id);
       if (!tone) continue;
-      const booked = scene.booked.get(room.id);
-      const text =
-        tone === 'booked' && booked
-          ? `${room.name} · ${booked}`
-          : `${room.name} · ${room.capacity}인`;
-      labels.push({ roomId: room.id, text, tone });
+      const booked = scene.booked.get(space.id);
+      const text = tone === 'booked' && booked ? `${space.name} · ${booked}` : `${space.name} · ${space.info}`;
+      labels.push({ roomId: space.id, text, tone });
     }
     return labels;
   }, [roomHighlights, scene]);
@@ -137,7 +150,7 @@ export function DioramaWidget() {
   /** 3D 장면이나 회의실 이름표에서 방을 누르면, 답을 기다리는 회의실 카드에 그대로 응답한다 */
   const pickRoom = (roomId: string) => {
     if (scene.pickCallId && scene.candidates.includes(roomId)) {
-      respondToTool(scene.pickCallId, { roomId });
+      respondToTool(scene.pickCallId, scene.pick ? scene.pick(roomId) : { roomId });
       setHoveredRoom(null);
     }
   };
@@ -177,7 +190,8 @@ export function DioramaWidget() {
           nearViewport && (
             <Suspense fallback={<div className="diorama-skeleton">공간을 불러오는 중…</div>}>
               <DioramaView
-                members={members}
+                members={viewMembers}
+                highlightIds={panelOpen ? scene.people : undefined}
                 roomHighlights={roomHighlights}
                 roomLabels={roomLabels}
                 focusRoomIds={panelOpen && spatial ? scene.focus : []}
@@ -191,6 +205,12 @@ export function DioramaWidget() {
               />
             </Suspense>
           )
+        )}
+
+        {panelOpen && scene.note && (
+          <p className="scene-note" role="status">
+            {scene.note}
+          </p>
         )}
 
         {selected && (
@@ -229,6 +249,9 @@ export function DioramaWidget() {
                 ...conversation.state,
                 activeDomain: null,
                 meetingRoom: { ...conversation.state.meetingRoom, request: null },
+                schedule: { ...conversation.state.schedule, request: null, stage: null },
+                resources: { ...conversation.state.resources, request: null },
+                people: { focusIds: [] },
               });
               setHoveredRoom(null);
               inputRef.current?.focus();
@@ -304,6 +327,12 @@ function sceneFromConversation(conversation: Conversation<AgentState>): SceneLin
     const [, m, d] = b.date.split('-').map(Number);
     booked.set(b.roomId, `${m}/${d} ${b.start} 예약`);
   }
+  // 예약한 자율 좌석 (예약 안 된 회의실과 id가 겹치지 않는다)
+  for (const r of conversation.state.resources.reservations) {
+    if (!r.resourceId.startsWith('desk-')) continue;
+    const [, m, d] = r.date.split('-').map(Number);
+    booked.set(r.resourceId, `${m}/${d} ${SLOT_LABEL[r.slot]} 예약`);
+  }
   const empty: SceneLink = { candidates: [], active: null, focus: [], pickCallId: null, booked };
 
   const pending = pendingToolCalls(conversation.messages);
@@ -316,7 +345,7 @@ function sceneFromConversation(conversation: Conversation<AgentState>): SceneLin
   const lastCall = lastToolCall(conversation.messages);
   if (!lastCall) return empty;
   const hint = sceneFor(lastCall, parsePartialJson(lastCall.function.arguments) as Record<string, unknown> | undefined, false);
-  return { ...empty, focus: hint?.focus ?? [] };
+  return { ...empty, focus: hint?.focus ?? [], people: hint?.people };
 }
 
 function lastToolCall(messages: Message[]): ToolCall | undefined {

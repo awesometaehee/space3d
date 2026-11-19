@@ -21,6 +21,8 @@ interface Props {
   onRoomPick: (roomId: string) => void;
   onRoomHover: (roomId: string | null) => void;
   selectedId: string | null;
+  /** 에이전트가 찾은 사람: 이름표를 강조한다 */
+  highlightIds?: string[];
   showStats: boolean;
   onSelect: (id: string | null) => void;
   /** WebGL 초기화에 실패했을 때 호출 → 위젯이 목록 화면으로 대체한다 */
@@ -41,6 +43,7 @@ export default function DioramaView({
   onRoomPick,
   onRoomHover,
   selectedId,
+  highlightIds,
   showStats,
   onSelect,
   onUnavailable,
@@ -136,7 +139,7 @@ export default function DioramaView({
               if (el) labels.set(m.id, el);
               else labels.delete(m.id);
             }}
-            className={`vlabel is-${m.status}${m.id === selectedId ? ' is-selected' : ''}`}
+            className={`vlabel is-${m.status}${m.id === selectedId ? ' is-selected' : ''}${highlightIds?.includes(m.id) ? ' is-found' : ''}`}
             aria-label={`${m.name} ${m.title}, ${STATUS_LABEL[m.status]}`}
             onClick={() => onSelect(m.id === selectedId ? null : m.id)}
           >

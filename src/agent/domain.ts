@@ -19,10 +19,18 @@ export interface SceneHint {
   candidates: string[];
   /** 지금 보고 있는 회의실 */
   active: string | null;
-  /** 카메라를 맞출 회의실 */
+  /** 카메라를 맞출 회의실 (또는 구성원 id) */
   focus: string[];
   /** 3D에서 후보 방을 누르면 응답할 도구 호출 id */
   pickCallId: string | null;
+  /** (선택) 복셀에서 부재로 보여 줄 구성원 id (예: 휴가 신청한 날의 팀 부재 미리보기) */
+  away?: string[];
+  /** (선택) 장면 위에 띄울 한 줄 안내 */
+  note?: string;
+  /** (선택) 3D에서 후보를 눌렀을 때 카드에 보낼 응답. 없으면 { roomId } */
+  pick?: (id: string) => unknown;
+  /** (선택) 이름표를 강조할 구성원 id (사람 찾기). 카메라는 focus에 구성원 id를 넣으면 그 자리로 간다 */
+  people?: string[];
 }
 
 /**
@@ -49,6 +57,11 @@ export interface DomainUI {
     close: (state: AgentState) => AgentState;
     Component: ComponentType<WorkspaceProps>;
   };
+  /**
+   * (선택) 복셀 중심 레이아웃(좁은 패널)이 필요한지. 없으면 scene이 있는 영역을 공간 업무로 본다.
+   * 단계에 따라 달라지는 영역(일정 조율: 회의실을 고를 때만)은 공유 상태로 판단한다.
+   */
+  spatial?: (state: AgentState) => boolean;
   /** (선택) 이 영역의 카드가 복셀에 보여 줄 공간 정보 */
   scene?: (call: ToolCall, args: Record<string, unknown> | undefined, streaming: boolean) => SceneHint | null;
 }

@@ -389,7 +389,7 @@ function DraftedList({ store }: { store: ApprovalStore }) {
               )}
             </span>
             <span className="ws-row-side">
-              <span className="ws-amount">{formatWon(d.amount)}</span>
+              <span className="ws-amount">{d.amount !== undefined ? formatWon(d.amount) : (d.summary ?? '–')}</span>
               <span className="info-chip">진행 중</span>
             </span>
           </li>
