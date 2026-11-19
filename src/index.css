@@ -641,6 +641,72 @@ button.ws-row:hover { background: var(--surface-2); }
 .invite-status small { color: var(--muted); font-size: 11px; font-weight: 500; }
 .invite-status em { margin-left: auto; font-style: normal; color: var(--muted); font-size: 11.5px; font-weight: 500; }
 
+/* ── 휴가·근태 카드 ───────────────── */
+/* 장면 위 한 줄 안내 (예: 휴가 신청한 날의 사무실 미리보기) */
+.scene-note {
+  position: absolute; left: 16px; top: 16px; margin: 0; padding: 7px 12px;
+  background: var(--surface); border-radius: var(--r-sm); box-shadow: var(--shadow-sm);
+  color: var(--ink-2); font-size: 12px; font-weight: 600; pointer-events: none;
+}
+
+/* 종류 고르기: 붙어 있는 버튼 묶음 */
+.seg { display: flex; gap: 2px; padding: 2px; background: var(--surface-2); border-radius: var(--r-sm); }
+.seg button {
+  flex: 1; height: 30px; border: 0; border-radius: var(--r-xs); cursor: pointer; background: transparent;
+  color: var(--muted); font-size: 12.5px; font-weight: 500;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+.seg button:hover:not(:disabled) { color: var(--ink); }
+.seg button[aria-checked='true'] { background: var(--surface); color: var(--ink); font-weight: 700; box-shadow: var(--shadow-xs); }
+.seg button:disabled:not([aria-checked='true']) { color: var(--faint); cursor: default; }
+
+.date-chips { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 4px; }
+.date-chips li { padding: 2px 8px; border-radius: var(--r-pill); background: var(--accent-soft); color: var(--accent); font-size: 11.5px; font-weight: 600; }
+
+/* 연차 막대 */
+.balance { display: flex; flex-direction: column; gap: 8px; }
+.balance-bar { display: flex; height: 8px; overflow: hidden; border-radius: 1px; background: var(--surface-3); }
+.balance-bar span { height: 100%; transition: width 0.3s var(--ease); }
+.balance-bar .is-used { background: var(--faint); }
+.balance-bar .is-planned { background: color-mix(in srgb, var(--accent) 45%, var(--surface-3)); }
+.balance-bar .is-adding { background: var(--accent); }
+.balance-nums { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 18px; }
+.balance-nums div { display: flex; flex-direction: column; gap: 1px; }
+.balance-nums dt { color: var(--muted); font-size: 11px; }
+.balance-nums dd { margin: 0; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.balance-nums dd small { color: var(--muted); font-weight: 500; font-size: 11px; }
+.balance-nums .is-adding dd { color: var(--accent); }
+.balance-nums .is-over dd { color: var(--warn); }
+
+.leave-field { display: flex; flex-direction: column; gap: 6px; }
+.leave-field h4 { margin: 0; font-size: 12px; font-weight: 700; color: var(--ink-2); }
+.leave-notes { margin: 0; padding: 10px 12px; list-style: none; display: flex; flex-direction: column; gap: 4px; background: var(--warn-soft); border-radius: var(--r-md); }
+.leave-notes li { display: flex; gap: 8px; align-items: baseline; font-size: 12px; color: var(--ink-2); }
+.leave-notes li > span { color: var(--warn); font-weight: 700; }
+.leave-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.leave-list li { display: flex; align-items: baseline; gap: 10px; padding: 6px 2px; font-size: 12.5px; }
+.leave-list li + li { border-top: 1px solid var(--line); }
+.leave-list li > span { width: 96px; flex: none; color: var(--muted); font-size: 12px; }
+.leave-list strong { font-weight: 600; }
+.leave-list em { margin-left: auto; padding: 1px 8px; border-radius: var(--r-pill); font-style: normal; font-size: 11px; font-weight: 600; background: var(--surface-3); color: var(--ink-2); }
+.leave-list em.is-ok { background: var(--ok-soft); color: var(--ok); }
+
+/* 주 근무시간 막대: 40시간 눈금, 52시간이 끝 */
+.work-meter { position: relative; height: 8px; border-radius: 1px; background: var(--surface-3); }
+.work-meter span { position: absolute; inset: 0 auto 0 0; background: var(--accent); border-radius: 1px; }
+.work-meter i { position: absolute; top: -3px; bottom: -3px; width: 1.5px; background: var(--ink-2); }
+.work-meter-legend { position: relative; height: 14px; margin: 2px 0 0; color: var(--muted); font-size: 10.5px; }
+.work-meter-legend span { position: absolute; transform: translateX(-50%); }
+.work-meter-legend span:first-child { left: 0; transform: none; }
+.work-meter-legend span:last-child { right: 0; transform: none; }
+.work-table { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.work-table th, .work-table td { padding: 6px 4px; text-align: left; }
+.work-table thead th { color: var(--muted); font-size: 11px; font-weight: 500; }
+.work-table tbody tr + tr { border-top: 1px solid var(--line); }
+.work-table tbody th { font-weight: 600; }
+.work-table td:last-child, .work-table th:last-child { text-align: right; }
+.work-table .is-leave { color: var(--accent); font-weight: 600; }
+
 /* ── 넓은 패널: 카드가 남는 폭을 쓴다 ───────────────── */
 .doc-body, .doc-main, .doc-side { display: flex; flex-direction: column; gap: 12px; }
 @container (min-width: 600px) {

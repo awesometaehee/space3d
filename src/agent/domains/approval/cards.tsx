@@ -174,7 +174,7 @@ function DraftResultCard({ args, status }: CardProps<ShowDraftResultArgs, never>
         <div>
           <strong>{d.title}</strong>
           <span>
-            {d.number} · {formatWon(d.amount)}
+            {d.number} · {d.amount !== undefined ? formatWon(d.amount) : d.summary}
           </span>
         </div>
       </div>

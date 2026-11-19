@@ -109,6 +109,13 @@ export function DioramaWidget() {
     setPanelOpen(true);
   };
 
+  // 휴가 신청 중이면 그날 부재 예정인 팀원을 복셀에서 부재로 미리 보여 준다
+  const viewMembers = useMemo(() => {
+    if (!scene.away?.length) return members;
+    const away = new Set(scene.away);
+    return members.map((m) => (away.has(m.id) ? { ...m, status: 'away' as const } : m));
+  }, [members, scene.away]);
+
   const roomHighlights = useMemo(() => {
     const map = new Map<string, RoomHighlight>();
     for (const id of scene.booked.keys()) map.set(id, 'booked');
@@ -177,7 +184,7 @@ export function DioramaWidget() {
           nearViewport && (
             <Suspense fallback={<div className="diorama-skeleton">공간을 불러오는 중…</div>}>
               <DioramaView
-                members={members}
+                members={viewMembers}
                 roomHighlights={roomHighlights}
                 roomLabels={roomLabels}
                 focusRoomIds={panelOpen && spatial ? scene.focus : []}
@@ -191,6 +198,12 @@ export function DioramaWidget() {
               />
             </Suspense>
           )
+        )}
+
+        {panelOpen && scene.note && (
+          <p className="scene-note" role="status">
+            {scene.note}
+          </p>
         )}
 
         {selected && (

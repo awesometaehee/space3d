@@ -148,7 +148,7 @@ export const approvalHandler: MockHandler = {
     }
     const reviewer = drafted.line.find((s) => s.status === 'current')?.person;
     yield* ctx.say(
-      `${formatWon(drafted.amount)} "${drafted.title}"을 상신했어요.` +
+      `${formatWon(r.draft.amount)} "${drafted.title}"을 상신했어요.` +
         (reviewer ? ` 이제 ${reviewer.name} ${reviewer.title}이 검토할 차례예요. 결재함의 "내가 올린 문서"에서 볼 수 있어요.` : ''),
     );
     const args: ShowDraftResultArgs = { drafted, form: r.draft.form };

@@ -4,7 +4,7 @@ import { FORMS, type ApprovalView } from './view';
 
 /** 전자결재 요청 같은지 (0~1). 라우터가 업무 영역을 고를 때 쓴다 */
 export function matchApproval(text: string): number {
-  if (/결재|승인|반려|기안|상신|지출\s*결의|결의서|품의|구매\s*요청|출장\s*신청|휴가\s*신청|경비\s*(청구|처리)|영수증/.test(text)) return 1;
+  if (/결재|승인|반려|기안|상신|지출\s*결의|결의서|품의|구매\s*요청|출장\s*신청|경비\s*(청구|처리)|영수증/.test(text)) return 1;
   if (/처리한\s*(문서|거)|내가\s*올린/.test(text)) return 0.8;
   if (parseAmount(text) > 0 && /비|값|구매|샀|사\s*줘|썼|결제/.test(text)) return 0.7;
   return 0;

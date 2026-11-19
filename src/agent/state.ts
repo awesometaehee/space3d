@@ -3,6 +3,7 @@ import { CLOSED_VIEW, type ApprovalView } from './domains/approval/view';
 import type { BookingRequest } from './domains/meetingRoom/intent';
 import type { ScheduleRequest, ScheduleStage } from './domains/schedule/intent';
 import type { CalendarEvent } from '../data/calendar';
+import type { LeaveRecord } from '../data/leave';
 
 /**
  * 에이전트와 화면이 함께 보는 공유 상태 (AG-UI STATE_SNAPSHOT / STATE_DELTA).
@@ -29,6 +30,10 @@ export interface AgentState {
     /** 이번 대화에서 등록한 일정 */
     events: CalendarEvent[];
   };
+  leave: {
+    /** 이번 대화에서 상신한 내 휴가 */
+    submitted: LeaveRecord[];
+  };
   approval: {
     /** 결재함 작업 화면의 보기 상태 (화면과 에이전트가 함께 바꾼다) */
     view: ApprovalView;
@@ -40,6 +45,7 @@ export function emptyState(): AgentState {
     activeDomain: null,
     meetingRoom: { bookings: [], request: null },
     schedule: { request: null, stage: null, events: [] },
+    leave: { submitted: [] },
     approval: { view: CLOSED_VIEW },
   };
 }

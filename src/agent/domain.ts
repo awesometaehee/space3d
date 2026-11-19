@@ -23,6 +23,10 @@ export interface SceneHint {
   focus: string[];
   /** 3D에서 후보 방을 누르면 응답할 도구 호출 id */
   pickCallId: string | null;
+  /** (선택) 복셀에서 부재로 보여 줄 구성원 id (예: 휴가 신청한 날의 팀 부재 미리보기) */
+  away?: string[];
+  /** (선택) 장면 위에 띄울 한 줄 안내 */
+  note?: string;
 }
 
 /**

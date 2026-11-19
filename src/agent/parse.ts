@@ -1,4 +1,5 @@
-import { dateKey, type DateKey } from '../data/meetingRooms';
+import { businessDays, isWeekend } from '../data/calendar';
+import { dateKey, formatDate, type DateKey } from '../data/meetingRooms';
 
 /**
  * 모의 에이전트용 날짜 해석. 실제 에이전트에서는 LLM이 이 역할을 한다.
@@ -44,3 +45,67 @@ export function parseAmount(text: string): number {
   const plain = t.match(/(\d[\d,]*)원/);
   return plain ? Number(plain[1].replace(/,/g, '')) : 0;
 }
+
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+
+export function startOfWeek(d: Date): Date {
+  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const offset = (day.getDay() + 6) % 7; // 월요일 기준
+  day.setDate(day.getDate() - offset);
+  return day;
+}
+
+export function addDays(d: Date, n: number): Date {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+}
+
+/** 날짜 범위: 다음 주 / 이번 주 / 요일 / 특정 날짜 (주말은 뺀다) */
+export function parseDateRange(t: string, now: Date): { dates: DateKey[]; label: string } | null {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const weekday = t.match(/([월화수목금])\s*요일/);
+  const nextWeek = /다음\s*주|담주|차주/.test(t);
+  const thisWeek = /이번\s*주|금주/.test(t);
+
+  if (weekday) {
+    const target = WEEKDAYS.indexOf(weekday[1]);
+    let d: Date;
+    if (nextWeek) d = addDays(startOfWeek(today), 7 + ((target + 6) % 7));
+    else {
+      d = new Date(today);
+      while (d.getDay() !== target || d <= today) d = addDays(d, 1);
+    }
+    const key = dateKey(d);
+    return { dates: [key], label: formatDate(key) };
+  }
+  if (nextWeek) {
+    const monday = addDays(startOfWeek(today), 7);
+    return { dates: businessDays(monday, 5), label: '다음 주' };
+  }
+  if (thisWeek) {
+    const friday = addDays(startOfWeek(today), 4);
+    const dates: DateKey[] = [];
+    for (let d = new Date(today); d <= friday; d = addDays(d, 1)) if (!isWeekend(dateKey(d))) dates.push(dateKey(d));
+    if (dates.length) return { dates, label: '이번 주' };
+  }
+  // 기간: "26일부터 27일까지", "26~27일", "11월 26일~28일"
+  const span = t.match(/(?:(\d{1,2})\s*월\s*)?(\d{1,2})\s*일?\s*(?:부터|~|-|에서)\s*(?:(\d{1,2})\s*월\s*)?(\d{1,2})\s*일/);
+  if (span) {
+    const from = parseDate(`${span[1] ? `${span[1]}월 ` : ''}${span[2]}일`, now).date;
+    const to = parseDate(`${span[3] ?? span[1] ?? ''}${span[3] || span[1] ? '월 ' : ''}${span[4]}일`, now).date;
+    const dates: DateKey[] = [];
+    const [y, m, d] = from.split('-').map(Number);
+    for (let x = new Date(y, m - 1, d); dateKey(x) <= to && dates.length < 15; x = addDays(x, 1)) {
+      if (!isWeekend(dateKey(x))) dates.push(dateKey(x));
+    }
+    if (dates.length) return { dates, label: dates.length === 1 ? formatDate(dates[0]) : `${formatDate(dates[0])} ~ ${formatDate(dates[dates.length - 1])}` };
+  }
+  const single = parseDate(t, now);
+  if (single.found) {
+    if (isWeekend(single.date)) return null;
+    return { dates: [single.date], label: formatDate(single.date) };
+  }
+  return null;
+}
+

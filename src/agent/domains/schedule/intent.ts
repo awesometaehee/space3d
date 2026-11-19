@@ -1,6 +1,6 @@
-import { DIRECTORY, TEAMS, businessDays, isWeekend } from '../../../data/calendar';
-import { dateKey, formatDate, type DateKey, type DayPeriod } from '../../../data/meetingRooms';
-import { parseDate } from '../../parse';
+import { DIRECTORY, TEAMS, businessDays } from '../../../data/calendar';
+import type { DateKey, DayPeriod } from '../../../data/meetingRooms';
+import { addDays, parseDateRange } from '../../parse';
 
 /** 진행 중인 일정 조율 요청 (공유 상태 schedule.request) */
 export interface ScheduleRequest {
@@ -33,8 +33,6 @@ export interface ParsedSchedule {
   title: string | null;
 }
 
-const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
-
 /** 요청에서 참석자 찾기: 팀 이름이면 팀 전체, 이름이면 그 사람 */
 function findAttendees(t: string): { ids: string[]; teams: string[] } {
   const teams = TEAMS.filter((team) => t.includes(team) || t.includes(team.replace(/팀$/, ' 팀')));
@@ -45,55 +43,6 @@ function findAttendees(t: string): { ids: string[]; teams: string[] } {
     if (new RegExp(`${c.name}(?=$|[^가-힣]|님|씨|이랑|랑|과|와|하고|이|도|${c.title})`).test(t)) ids.add(c.id);
   }
   return { ids: [...ids], teams };
-}
-
-function startOfWeek(d: Date): Date {
-  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const offset = (day.getDay() + 6) % 7; // 월요일 기준
-  day.setDate(day.getDate() - offset);
-  return day;
-}
-
-function addDays(d: Date, n: number): Date {
-  const x = new Date(d);
-  x.setDate(x.getDate() + n);
-  return x;
-}
-
-/** 날짜 범위: 다음 주 / 이번 주 / 요일 / 특정 날짜 */
-function findDates(t: string, now: Date): { dates: DateKey[]; label: string } | null {
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const weekday = t.match(/([월화수목금])\s*요일/);
-  const nextWeek = /다음\s*주|담주|차주/.test(t);
-  const thisWeek = /이번\s*주|금주/.test(t);
-
-  if (weekday) {
-    const target = WEEKDAYS.indexOf(weekday[1]);
-    let d: Date;
-    if (nextWeek) d = addDays(startOfWeek(today), 7 + ((target + 6) % 7));
-    else {
-      d = new Date(today);
-      while (d.getDay() !== target || d <= today) d = addDays(d, 1);
-    }
-    const key = dateKey(d);
-    return { dates: [key], label: formatDate(key) };
-  }
-  if (nextWeek) {
-    const monday = addDays(startOfWeek(today), 7);
-    return { dates: businessDays(monday, 5), label: '다음 주' };
-  }
-  if (thisWeek) {
-    const friday = addDays(startOfWeek(today), 4);
-    const dates: DateKey[] = [];
-    for (let d = new Date(today); d <= friday; d = addDays(d, 1)) if (!isWeekend(dateKey(d))) dates.push(dateKey(d));
-    if (dates.length) return { dates, label: '이번 주' };
-  }
-  const single = parseDate(t, now);
-  if (single.found) {
-    if (isWeekend(single.date)) return null;
-    return { dates: [single.date], label: formatDate(single.date) };
-  }
-  return null;
 }
 
 const TITLE_WORDS: Array<[RegExp, string]> = [
@@ -113,7 +62,7 @@ const TITLE_WORDS: Array<[RegExp, string]> = [
 export function parseSchedule(text: string, now: Date): ParsedSchedule {
   const t = text.replace(/\s+/g, ' ');
   const { ids, teams } = findAttendees(t);
-  const range = findDates(t, now);
+  const range = parseDateRange(t, now);
 
   const period: DayPeriod | null = /오전|아침/.test(t) ? 'morning' : /오후|점심\s*(?:이후|후)/.test(t) ? 'afternoon' : null;
 

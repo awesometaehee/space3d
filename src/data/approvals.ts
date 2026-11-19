@@ -72,9 +72,12 @@ export interface DraftInput {
 export interface DraftedApproval {
   docId: string;
   number: string;
-  form: DraftInput['form'];
+  form: ApprovalForm;
   title: string;
-  amount: number;
+  /** 금액이 있는 문서(지출·구매)만 */
+  amount?: number;
+  /** 금액 대신 보여 줄 요약 (예: 휴가 "1일") */
+  summary?: string;
   /** 'YYYY-MM-DD HH:MM' */
   submittedAt: string;
   line: LineStep[];
@@ -82,6 +85,12 @@ export interface DraftedApproval {
 
 export const ME: Person = { name: '나', title: '팀장', team: '플랫폼팀' };
 const P = (name: string, title: string, team = '플랫폼팀'): Person => ({ name, title, team });
+
+/** 내 휴가 결재선 (가상): 팀장의 휴가는 본부장이 결재한다 */
+export const LEAVE_LINE: LineStep[] = [
+  { role: '기안', person: ME, status: 'done' },
+  { role: '결재', person: P('가람', '본부장', '플랫폼본부'), status: 'current' },
+];
 
 /** 내가 기안할 때의 기본 결재선 (가상) */
 export const DEFAULT_DRAFT_LINE: LineStep[] = [
@@ -285,6 +294,22 @@ export class ApprovalStore {
       amount: Math.round(input.amount),
       submittedAt: stamp(this.now()),
       line: DEFAULT_DRAFT_LINE,
+    };
+    this.drafts.push(drafted);
+    this.changed();
+    return drafted;
+  }
+
+  /** 휴가신청 상신 (휴가·근태 영역이 쓴다). 사유 칸은 두지 않는다 */
+  submitLeave(title: string, summary: string): DraftedApproval {
+    const drafted: DraftedApproval = {
+      docId: `my-${++this.seq}`,
+      number: `휴가-${this.now().getFullYear()}-${String(this.seq).padStart(4, '0')}`,
+      form: '휴가신청',
+      title,
+      summary,
+      submittedAt: stamp(this.now()),
+      line: LEAVE_LINE,
     };
     this.drafts.push(drafted);
     this.changed();

@@ -30,6 +30,13 @@ async function collectCalls(): Promise<ToolCall[]> {
   await sc.answer({ confirmed: true, title: '협의', note: '' });
   grab(sc);
 
+  const lv = setup();
+  await lv.say('금요일 연차 쓸게');
+  await lv.answer({ submitted: true, kind: '연차', delegateId: 'm2' });
+  await lv.say('남은 연차 알려줘');
+  await lv.say('이번 주 근무시간');
+  grab(lv);
+
   const ap = setup();
   await ap.say('어제 택시비 23,000원 지출결의 올려줘');
   const { draft } = JSON.parse(ap.card!.function.arguments);

@@ -113,6 +113,11 @@ export class CalendarStore {
     return this.busy(personId, date).every((b) => b.end <= s || b.start >= e);
   }
 
+  /** 그날 일정 수 (제목은 알려 주지 않는다) */
+  countBusy(personId: string, date: DateKey): number {
+    return isWeekend(date) ? 0 : this.busy(personId, date).length;
+  }
+
   /** 지금보다 지난 칸인지 (오늘이면 지금 이후만) */
   private past(date: DateKey, startMin: number): boolean {
     const now = this.now();
