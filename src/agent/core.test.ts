@@ -68,7 +68,7 @@ describe('라우터', () => {
     const t = setup();
     await t.say('안녕하세요');
     expect(t.calledTools()).toEqual([]);
-    expect(t.text()).toContain('회의실 예약, 일정 조율, 휴가·근태, 전자결재');
+    expect(t.text()).toContain('회의실 예약, 일정 조율, 휴가·근태, 사람 찾기, 전자결재');
   });
 
   it('요청 내용에 따라 업무 영역을 고르고, 화면에 처리 중인 영역을 먼저 알린다', async () => {

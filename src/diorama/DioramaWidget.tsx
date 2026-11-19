@@ -100,6 +100,8 @@ export function DioramaWidget() {
       ? PANEL_NARROW
       : panelWideWidth(viewportWidth);
   const approvals = useApprovals(backend.approvals);
+  // 에이전트가 재실 상태를 답할 수 있게 넘겨준다 (실제로는 에이전트 서버가 재실 API를 부른다)
+  useEffect(() => backend.setPresence(members), [members]);
 
   /** 하단 바 바로가기: 에이전트를 거치지 않고 작업 화면을 바로 연다 */
   const openWorkspaceOf = (domainId: string) => {
@@ -185,6 +187,7 @@ export function DioramaWidget() {
             <Suspense fallback={<div className="diorama-skeleton">공간을 불러오는 중…</div>}>
               <DioramaView
                 members={viewMembers}
+                highlightIds={panelOpen ? scene.people : undefined}
                 roomHighlights={roomHighlights}
                 roomLabels={roomLabels}
                 focusRoomIds={panelOpen && spatial ? scene.focus : []}
@@ -243,6 +246,7 @@ export function DioramaWidget() {
                 activeDomain: null,
                 meetingRoom: { ...conversation.state.meetingRoom, request: null },
                 schedule: { ...conversation.state.schedule, request: null, stage: null },
+                people: { focusIds: [] },
               });
               setHoveredRoom(null);
               inputRef.current?.focus();
@@ -330,7 +334,7 @@ function sceneFromConversation(conversation: Conversation<AgentState>): SceneLin
   const lastCall = lastToolCall(conversation.messages);
   if (!lastCall) return empty;
   const hint = sceneFor(lastCall, parsePartialJson(lastCall.function.arguments) as Record<string, unknown> | undefined, false);
-  return { ...empty, focus: hint?.focus ?? [] };
+  return { ...empty, focus: hint?.focus ?? [], people: hint?.people };
 }
 
 function lastToolCall(messages: Message[]): ToolCall | undefined {

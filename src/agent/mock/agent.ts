@@ -3,18 +3,19 @@ import { approvalHandler } from '../domains/approval/handler';
 import { meetingRoomHandler } from '../domains/meetingRoom/handler';
 import { scheduleHandler } from '../domains/schedule/handler';
 import { leaveHandler } from '../domains/leave/handler';
+import { peopleHandler } from '../domains/people/handler';
 import type { AgentState } from '../state';
 import { GroupwareBackend } from './backend';
 import type { HandlerContext, MockHandler } from './types';
 
 /** 업무 영역 처리기 목록. 새 업무는 여기에 추가한다. 점수가 같으면 앞의 것이 맡는다 */
-const HANDLERS: MockHandler[] = [approvalHandler, leaveHandler, scheduleHandler, meetingRoomHandler];
+const HANDLERS: MockHandler[] = [approvalHandler, leaveHandler, peopleHandler, scheduleHandler, meetingRoomHandler];
 
 /** 이 점수보다 낮으면 어느 영역 일도 아니라고 본다 */
 const MIN_MATCH = 0.3;
 
 const HELP =
-  '지금은 회의실 예약, 일정 조율, 휴가·근태, 전자결재를 도와드릴 수 있어요. 예: "내일 오후 4명 회의실 잡아줘", "다음 주 기획팀이랑 1시간 회의 잡아줘", "금요일 연차 쓸게", "결재할 거 보여줘"';
+  '지금은 회의실 예약, 일정 조율, 휴가·근태, 사람 찾기, 전자결재를 도와드릴 수 있어요. 예: "내일 오후 4명 회의실 잡아줘", "다음 주 기획팀이랑 1시간 회의 잡아줘", "금요일 연차 쓸게", "보안 점검 담당자 누구야?", "결재할 거 보여줘"';
 
 export interface MockAgentOptions {
   backend: GroupwareBackend;

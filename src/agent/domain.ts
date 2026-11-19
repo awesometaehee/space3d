@@ -19,7 +19,7 @@ export interface SceneHint {
   candidates: string[];
   /** 지금 보고 있는 회의실 */
   active: string | null;
-  /** 카메라를 맞출 회의실 */
+  /** 카메라를 맞출 회의실 (또는 구성원 id) */
   focus: string[];
   /** 3D에서 후보 방을 누르면 응답할 도구 호출 id */
   pickCallId: string | null;
@@ -27,6 +27,8 @@ export interface SceneHint {
   away?: string[];
   /** (선택) 장면 위에 띄울 한 줄 안내 */
   note?: string;
+  /** (선택) 이름표를 강조할 구성원 id (사람 찾기). 카메라는 focus에 구성원 id를 넣으면 그 자리로 간다 */
+  people?: string[];
 }
 
 /**

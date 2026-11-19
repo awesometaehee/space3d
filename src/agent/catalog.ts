@@ -5,12 +5,13 @@ import { approvalUI } from './domains/approval';
 import { meetingRoomUI } from './domains/meetingRoom';
 import { scheduleUI } from './domains/schedule';
 import { leaveUI } from './domains/leave';
+import { peopleUI } from './domains/people';
 
 /**
  * 화면이 아는 업무 영역 전체. 새 업무는 여기에 한 줄 추가한다.
  * 에이전트는 이 목록 밖의 카드를 띄울 수 없다.
  */
-export const DOMAINS: DomainUI[] = [meetingRoomUI, scheduleUI, leaveUI, approvalUI];
+export const DOMAINS: DomainUI[] = [meetingRoomUI, scheduleUI, leaveUI, peopleUI, approvalUI];
 
 /** 실행할 때 에이전트에 함께 보내는 프론트엔드 도구 정의 */
 export const FRONTEND_TOOLS = DOMAINS.flatMap((d) => d.tools);

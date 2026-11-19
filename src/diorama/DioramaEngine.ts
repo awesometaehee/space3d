@@ -76,6 +76,8 @@ const HIGHLIGHT_STYLE: Record<RoomHighlight, { color: number; floor: number; vol
   booked: { color: 0x26a06b, floor: 0.32, volume: 0.08 },
 };
 const FOCUS_MS = 450;
+/** 구성원 자리에 초점을 맞출 때 보는 범위 (복셀 단위). 주변 책상이 함께 보이게 */
+const CHARACTER_FOCUS_SIZE = 40;
 
 interface RoomOverlay {
   floor: Mesh<BoxGeometry, MeshBasicMaterial>;
@@ -329,12 +331,20 @@ export class DioramaEngine {
   }
 
   /**
-   * 주어진 회의실들이 화면 가운데 오도록 카메라를 부드럽게 옮긴다. 빈 목록이면 처음 위치로.
+   * 주어진 회의실(또는 구성원 자리)들이 화면 가운데 오도록 카메라를 부드럽게 옮긴다. 빈 목록이면 처음 위치로.
    * 연속 루프 대신 옮기는 동안만 프레임을 그린다.
    * insetRight: 화면 오른쪽을 가리는 패널 폭(px). 그만큼 왼쪽으로 비켜서 가운데를 맞춘다.
    */
   focusRooms(ids: string[], insetRight = 0): void {
-    const targets = ids.map((id) => this.rooms.get(id)).filter((r): r is RoomOverlay => !!r);
+    // 구성원 id면 그 캐릭터 자리 (방보다 작은 범위로 본다)
+    const targets = ids
+      .map((id) => {
+        const room = this.rooms.get(id);
+        if (room) return { center: room.center, size: room.size };
+        const ch = this.characters.get(id);
+        return ch ? { center: ch.anchor, size: CHARACTER_FOCUS_SIZE } : null;
+      })
+      .filter((r): r is { center: Vector3; size: number } => !!r);
     const toTarget = new Vector3();
     let toZoom = 1;
     if (targets.length) {

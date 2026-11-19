@@ -109,3 +109,9 @@ export function parseDateRange(t: string, now: Date): { dates: DateKey[]; label:
   return null;
 }
 
+
+/** 받침이 있으면 a, 없으면 b ("책임은" / "매니저는", "좌석이" / "법인차가") */
+export function josa(word: string, a: string, b: string): string {
+  const code = word.charCodeAt(word.length - 1) - 0xac00;
+  return code >= 0 && code <= 11171 && code % 28 !== 0 ? a : b;
+}

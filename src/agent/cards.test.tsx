@@ -37,6 +37,11 @@ async function collectCalls(): Promise<ToolCall[]> {
   await lv.say('이번 주 근무시간');
   grab(lv);
 
+  const pp = setup();
+  await pp.say('보안 점검 담당자 누구야?');
+  await pp.say('조직도 보여줘');
+  grab(pp);
+
   const ap = setup();
   await ap.say('어제 택시비 23,000원 지출결의 올려줘');
   const { draft } = JSON.parse(ap.card!.function.arguments);

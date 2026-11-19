@@ -34,6 +34,10 @@ export interface AgentState {
     /** 이번 대화에서 상신한 내 휴가 */
     submitted: LeaveRecord[];
   };
+  people: {
+    /** 복셀에서 비추고 있는 사람 (자리가 있는 사람만). 있으면 복셀 중심 레이아웃 */
+    focusIds: string[];
+  };
   approval: {
     /** 결재함 작업 화면의 보기 상태 (화면과 에이전트가 함께 바꾼다) */
     view: ApprovalView;
@@ -46,6 +50,7 @@ export function emptyState(): AgentState {
     meetingRoom: { bookings: [], request: null },
     schedule: { request: null, stage: null, events: [] },
     leave: { submitted: [] },
+    people: { focusIds: [] },
     approval: { view: CLOSED_VIEW },
   };
 }

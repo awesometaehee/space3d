@@ -9,6 +9,7 @@
 | [domains/meeting-room.md](domains/meeting-room.md) | 회의실 예약 (구현됨) |
 | [domains/schedule.md](domains/schedule.md) | 일정 조율 (구현됨) |
 | [domains/leave.md](domains/leave.md) | 휴가·근태 (구현됨) |
+| [domains/people.md](domains/people.md) | 사람·조직 찾기 (구현됨) |
 | [domains/approval.md](domains/approval.md) | 전자결재 (구현됨) |
 | [ui-streaming-reply.md](ui-streaming-reply.md) | 답변 말풍선 스트리밍 애니메이션과 스프링 값 |
 
