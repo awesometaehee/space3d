@@ -23,7 +23,7 @@ import { AO_FULL, AO_SOFT, greedyMesh } from './voxel/greedyMesh';
 import type { VoxelGrid } from './voxel/VoxelGrid';
 import { buildLinearPalette } from './scene/palette';
 import { createVoxelMaterial } from './voxelMaterial';
-import { buildOfficeRoom, FLOOR_TOP, GLASS_HEIGHT, MEETING_ROOM_ZONES, ROOM } from './scene/officeRoom';
+import { buildOfficeRoom, FLOOR_TOP, GLASS_HEIGHT, HOT_DESK_ZONES, MEETING_ROOM_ZONES, ROOM } from './scene/officeRoom';
 import { ANIMAL_GRID, ANIMAL_LOOKS, ANIMAL_SCALE, SIT_BASE, buildAnimal, gridTop } from './scene/character';
 
 export interface EngineStats {
@@ -283,7 +283,12 @@ export class DioramaEngine {
 
   /** 회의실마다 반투명 바닥판과 공간 덩어리를 만들어 두고, 강조할 때만 보인다. */
   private buildRoomOverlays(root: Group): void {
-    for (const zone of MEETING_ROOM_ZONES) {
+    // 회의실은 유리벽 높이, 자율 좌석은 책상 높이로 덮는다
+    const zones = [
+      ...MEETING_ROOM_ZONES.map((z) => ({ ...z, height: GLASS_HEIGHT })),
+      ...HOT_DESK_ZONES,
+    ];
+    for (const zone of zones) {
       const w = zone.x1 - zone.x0;
       const d = zone.z1 - zone.z0;
       const cx = (zone.x0 + zone.x1) / 2;
@@ -301,8 +306,8 @@ export class DioramaEngine {
         return mesh;
       };
       const floor = make(0.4, FLOOR_TOP + 0.25);
-      const volume = make(GLASS_HEIGHT, FLOOR_TOP + GLASS_HEIGHT / 2 + 0.05);
-      const anchor = new Vector3(cx, FLOOR_TOP + GLASS_HEIGHT + 2, cz).add(root.position);
+      const volume = make(zone.height, FLOOR_TOP + zone.height / 2 + 0.05);
+      const anchor = new Vector3(cx, FLOOR_TOP + zone.height + 2, cz).add(root.position);
       const center = new Vector3(cx, FLOOR_TOP, cz).add(root.position);
       this.rooms.set(zone.id, { floor, volume, anchor, center, size: Math.max(w, d) });
     }

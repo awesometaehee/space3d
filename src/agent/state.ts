@@ -4,6 +4,8 @@ import type { BookingRequest } from './domains/meetingRoom/intent';
 import type { ScheduleRequest, ScheduleStage } from './domains/schedule/intent';
 import type { CalendarEvent } from '../data/calendar';
 import type { LeaveRecord } from '../data/leave';
+import type { Reservation } from '../data/resources';
+import type { ResourceRequest } from './domains/resources/intent';
 
 /**
  * 에이전트와 화면이 함께 보는 공유 상태 (AG-UI STATE_SNAPSHOT / STATE_DELTA).
@@ -34,6 +36,12 @@ export interface AgentState {
     /** 이번 대화에서 상신한 내 휴가 */
     submitted: LeaveRecord[];
   };
+  resources: {
+    /** 진행 중인 자원 예약 (자율 좌석이면 복셀 중심 레이아웃) */
+    request: ResourceRequest | null;
+    /** 이번 대화에서 한 자원 예약 */
+    reservations: Reservation[];
+  };
   people: {
     /** 복셀에서 비추고 있는 사람 (자리가 있는 사람만). 있으면 복셀 중심 레이아웃 */
     focusIds: string[];
@@ -50,6 +58,7 @@ export function emptyState(): AgentState {
     meetingRoom: { bookings: [], request: null },
     schedule: { request: null, stage: null, events: [] },
     leave: { submitted: [] },
+    resources: { request: null, reservations: [] },
     people: { focusIds: [] },
     approval: { view: CLOSED_VIEW },
   };

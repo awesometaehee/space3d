@@ -27,6 +27,8 @@ export interface SceneHint {
   away?: string[];
   /** (선택) 장면 위에 띄울 한 줄 안내 */
   note?: string;
+  /** (선택) 3D에서 후보를 눌렀을 때 카드에 보낼 응답. 없으면 { roomId } */
+  pick?: (id: string) => unknown;
   /** (선택) 이름표를 강조할 구성원 id (사람 찾기). 카메라는 focus에 구성원 id를 넣으면 그 자리로 간다 */
   people?: string[];
 }

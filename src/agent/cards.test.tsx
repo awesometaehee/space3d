@@ -42,6 +42,14 @@ async function collectCalls(): Promise<ToolCall[]> {
   await pp.say('조직도 보여줘');
   grab(pp);
 
+  const rs = setup();
+  await rs.say('내일 자율석 예약해줘');
+  const desk = JSON.parse(rs.card!.function.arguments).items.find((i: { free: { am: boolean; pm: boolean } }) => i.free.am || i.free.pm);
+  await rs.answer({ resourceId: desk.id, slot: desk.free.am ? 'am' : 'pm' });
+  await rs.answer({ confirmed: true, purpose: '집중 업무' });
+  await rs.say('내 예약 현황');
+  grab(rs);
+
   const ap = setup();
   await ap.say('어제 택시비 23,000원 지출결의 올려줘');
   const { draft } = JSON.parse(ap.card!.function.arguments);
@@ -73,5 +81,5 @@ describe('카드 렌더링', () => {
         }
       }
     }
-  });
+  }, 60_000); // 업무 영역마다 흐름을 끝까지 돌리고 카드마다 수백 번 그려서 오래 걸린다
 });

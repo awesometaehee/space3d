@@ -1,6 +1,7 @@
 import { ApprovalStore } from '../../data/approvals';
 import { CalendarStore } from '../../data/calendar';
 import { LeaveStore } from '../../data/leave';
+import { ResourceStore } from '../../data/resources';
 import { SEATED_TEAM, otherPresence } from '../../data/people';
 import { colleagueById } from '../../data/calendar';
 import { dateKey } from '../../data/meetingRooms';
@@ -17,6 +18,7 @@ export class GroupwareBackend {
   readonly approvals: ApprovalStore;
   readonly calendar: CalendarStore;
   readonly leave: LeaveStore;
+  readonly resources: ResourceStore;
 
   private readonly presence = new Map<string, PresenceStatus>();
 
@@ -24,6 +26,7 @@ export class GroupwareBackend {
     this.approvals = new ApprovalStore(now);
     this.calendar = new CalendarStore(now);
     this.leave = new LeaveStore(now);
+    this.resources = new ResourceStore(now);
   }
 
   /** 재실 상태 받기 (지금은 화면의 가상 재실 구독을 그대로 넘겨받는다. 실제로는 재실 API) */

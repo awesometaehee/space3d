@@ -8,6 +8,7 @@
 | [groupware-tasks.md](groupware-tasks.md) | 에이전트로 처리할 그룹웨어 업무 목록, 우선순위, 다루지 않는 정보 |
 | [domains/meeting-room.md](domains/meeting-room.md) | 회의실 예약 (구현됨) |
 | [domains/schedule.md](domains/schedule.md) | 일정 조율 (구현됨) |
+| [domains/resources.md](domains/resources.md) | 자원 예약 (구현됨) |
 | [domains/leave.md](domains/leave.md) | 휴가·근태 (구현됨) |
 | [domains/people.md](domains/people.md) | 사람·조직 찾기 (구현됨) |
 | [domains/approval.md](domains/approval.md) | 전자결재 (구현됨) |

@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { STATUS_LABEL, usePresence, type Member, type PresenceStatus } from '../data/presence';
 import { MEETING_ROOMS } from '../data/meetingRooms';
+import { RESOURCES, SLOT_LABEL } from '../data/resources';
 import { AgentPanel } from '../agent/AgentPanel';
 import { parsePartialJson, type Message, type ToolCall } from '../agent/agui';
 import { DISPLAY_ONLY_TOOLS, FRONTEND_TOOLS, domainById, isSpatial, openWorkspace, sceneFor } from '../agent/catalog';
@@ -46,6 +47,12 @@ function useViewportWidth(): number {
   }, []);
   return width;
 }
+
+/** 복셀에서 강조·선택할 수 있는 공간: 회의실 + 자율 좌석 */
+const SPACES = [
+  ...MEETING_ROOMS.map((r) => ({ id: r.id, name: r.name, info: `${r.capacity}인` })),
+  ...RESOURCES.filter((r) => r.kind === 'desk').map((r) => ({ id: r.id, name: r.name, info: r.detail.split(' · ')[0] })),
+];
 
 // 아래 한 줄에 보여주는 가상 요약. 실제 연동 시 그룹웨어 데이터로 바꾼다.
 const HEADLINE = { label: '오늘의 공지', title: '11월 정기 보안 점검 안내' };
@@ -130,15 +137,12 @@ export function DioramaWidget() {
 
   const roomLabels = useMemo<RoomLabel[]>(() => {
     const labels: RoomLabel[] = [];
-    for (const room of MEETING_ROOMS) {
-      const tone = roomHighlights.get(room.id);
+    for (const space of SPACES) {
+      const tone = roomHighlights.get(space.id);
       if (!tone) continue;
-      const booked = scene.booked.get(room.id);
-      const text =
-        tone === 'booked' && booked
-          ? `${room.name} · ${booked}`
-          : `${room.name} · ${room.capacity}인`;
-      labels.push({ roomId: room.id, text, tone });
+      const booked = scene.booked.get(space.id);
+      const text = tone === 'booked' && booked ? `${space.name} · ${booked}` : `${space.name} · ${space.info}`;
+      labels.push({ roomId: space.id, text, tone });
     }
     return labels;
   }, [roomHighlights, scene]);
@@ -146,7 +150,7 @@ export function DioramaWidget() {
   /** 3D 장면이나 회의실 이름표에서 방을 누르면, 답을 기다리는 회의실 카드에 그대로 응답한다 */
   const pickRoom = (roomId: string) => {
     if (scene.pickCallId && scene.candidates.includes(roomId)) {
-      respondToTool(scene.pickCallId, { roomId });
+      respondToTool(scene.pickCallId, scene.pick ? scene.pick(roomId) : { roomId });
       setHoveredRoom(null);
     }
   };
@@ -246,6 +250,7 @@ export function DioramaWidget() {
                 activeDomain: null,
                 meetingRoom: { ...conversation.state.meetingRoom, request: null },
                 schedule: { ...conversation.state.schedule, request: null, stage: null },
+                resources: { ...conversation.state.resources, request: null },
                 people: { focusIds: [] },
               });
               setHoveredRoom(null);
@@ -321,6 +326,12 @@ function sceneFromConversation(conversation: Conversation<AgentState>): SceneLin
   for (const b of conversation.state.meetingRoom.bookings) {
     const [, m, d] = b.date.split('-').map(Number);
     booked.set(b.roomId, `${m}/${d} ${b.start} 예약`);
+  }
+  // 예약한 자율 좌석 (예약 안 된 회의실과 id가 겹치지 않는다)
+  for (const r of conversation.state.resources.reservations) {
+    if (!r.resourceId.startsWith('desk-')) continue;
+    const [, m, d] = r.date.split('-').map(Number);
+    booked.set(r.resourceId, `${m}/${d} ${SLOT_LABEL[r.slot]} 예약`);
   }
   const empty: SceneLink = { candidates: [], active: null, focus: [], pickCallId: null, booked };
 
